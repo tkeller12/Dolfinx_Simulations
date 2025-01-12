@@ -32,7 +32,7 @@ mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 #D = fem.functionspace(mesh, ("DQ", 0))
 #eps = fem.Function(D)
 
-degree = 3
+degree = 1
 RTCE = element("RTCE", mesh.basix_cell(), degree, dtype=real_type)
 Q = element("Lagrange", mesh.basix_cell(), degree, dtype=real_type)
 V = fem.functionspace(mesh, mixed_element([RTCE, Q]))
