@@ -72,10 +72,12 @@ def verify_mode(
     return np.isclose(f_tm, 0, atol=threshold) or np.isclose(f_te, 0, atol=threshold)
 
 w = 1
-h = 0.45 * w
-d = 0.5 * h
+#h = 0.45 * w
+h = 1
+#d = 0.5 * h
 nx = 300
-ny = int(0.4 * nx)
+#ny = int(0.4 * nx)
+ny = 300
 
 msh = create_rectangle(
     MPI.COMM_WORLD, np.array([[0, 0], [w, h]]), np.array([nx, ny]), CellType.quadrilateral
@@ -83,24 +85,27 @@ msh = create_rectangle(
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
 
 eps_v = 1
-eps_d = 2.45
+#eps_d = 2.45
 
 
-def Omega_d(x):
-    return x[1] <= d
-
-
+#def Omega_d(x):
+#    return x[1] <= d
+#
+#
+#def Omega_v(x):
+#    return x[1] >= d
+#
 def Omega_v(x):
-    return x[1] >= d
+    return x[1] >= 0
 
 
 D = fem.functionspace(msh, ("DQ", 0))
 eps = fem.Function(D)
 
 cells_v = locate_entities(msh, msh.topology.dim, Omega_v)
-cells_d = locate_entities(msh, msh.topology.dim, Omega_d)
+#cells_d = locate_entities(msh, msh.topology.dim, Omega_d)
 
-eps.x.array[cells_d] = np.full_like(cells_d, eps_d, dtype=scalar_type)
+#eps.x.array[cells_d] = np.full_like(cells_d, eps_d, dtype=scalar_type)
 eps.x.array[cells_v] = np.full_like(cells_v, eps_v, dtype=scalar_type)
 
 degree = 1
@@ -144,7 +149,8 @@ eps.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
 tol = 1e-9
 eps.setTolerances(tol=tol)
 
-eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
+#eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
+eps.setType(SLEPc.EPS.Type.POWER)
 
 # Get ST context from eps
 st = eps.getST()
