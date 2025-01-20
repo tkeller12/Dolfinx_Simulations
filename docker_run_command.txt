@@ -1,0 +1,5 @@
+DOLFINX:
+docker run --name dolfinx --volume C:\Users\jkell\Repositories\Dolfinx_Simulations:/home/python/Dolfinx_Simulations -ti dolfinx/dolfinx:stable
+
+TEST DOLFINX:
+docker run --cpus=8 --name dolfinx_test  --volume C:\Users\jkell\Repositories\Dolfinx_Simulations:/home/python/Dolfinx_Simulations -ti dolfinx/dolfinx:stable

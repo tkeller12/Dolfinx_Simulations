@@ -16,14 +16,15 @@ from dolfinx.mesh import CellType, create_rectangle, exterior_facet_indices, loc
 from slepc4py import SLEPc
 
 #waveguide parameters
-a = 1.0
-b = 0.5
+a = 0.9
+b = 0.4
 
-nx = 40
-ny = 40
+nx = 100
+ny = 100
 
 print('Creating Mesh...')
 mesh = create_rectangle(MPI.COMM_WORLD, np.array([[0,0],[a,b]]), np.array([nx, ny]), CellType.quadrilateral)
+#mesh = create_rectangle(MPI.COMM_WORLD, np.array([[0,0],[a,b]]), np.array([nx, ny]), CellType.triangle) # doesn't work with RTCE elements
 print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
@@ -32,12 +33,15 @@ mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 #D = fem.functionspace(mesh, ("DQ", 0))
 #eps = fem.Function(D)
 
-degree = 1
-RTCE = element("RTCE", mesh.basix_cell(), degree, dtype=real_type)
-Q = element("Lagrange", mesh.basix_cell(), degree, dtype=real_type)
+vector_degree = 2
+nodal_degree = 3
+degree = 2
+RTCE = element("RTCE", mesh.basix_cell(), vector_degree, dtype=real_type)
+Q = element("Lagrange", mesh.basix_cell(), nodal_degree, dtype=real_type)
 V = fem.functionspace(mesh, mixed_element([RTCE, Q]))
 
-lmbd0 = 0.1
+#lmbd0 = 1.0
+lmbd0 = 0.4
 k0 = 2 * np.pi / lmbd0
 
 eps_r = 1.
@@ -81,7 +85,9 @@ eps.setOperators(A, B)
 eps.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
 
 tol = 1e-9
-eps.setTolerances(tol=tol)
+max_it = 1111111
+eps.setTolerances(tol=tol, max_it=max_it)
+print('tol and max it:', eps.getTolerances())
 
 eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
 #eps.setType(SLEPc.EPS.Type.ARNOLDI) # No Improvement, 5 eigenavlues, 10 requested
@@ -93,7 +99,15 @@ st = eps.getST()
 
 # Set shift-and-invert transformation
 st.setType(SLEPc.ST.Type.SINVERT)
+st.setShift(0.1)
+st.setFromOptions()
+#st.setType(SLEPc.ST.Type.SHIFT) # Two eigenvalue converged
+#st.setType(SLEPc.ST.Type.CAYLEY)
+
 eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
+#eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
+
+#eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_IMAGINARY) # not supported
 
 #st.setType(SLEPc.ST.Type.SHIFT)
 #eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
@@ -106,9 +120,10 @@ eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
 #eps.setTarget(-((0.5 * k0) ** 2))
 #eps.setTarget(-29.5273)
 #eps.setTarget(-29.5273*2)
-eps.setTarget(-1000)
+#eps.setTarget(-29.52/2)
+eps.setTarget(-100)
 
-eps.setDimensions(nev=1)
+eps.setDimensions(nev=20)
 print('Done.')
 
 
@@ -133,6 +148,13 @@ for i in range(eps.getConverged()):
         print(i, eigen_value)
 print('Done.')
 
+print('Real, Non-trivial Eigenvalues:')
+for i in range(eps.getConverged()):
+    eigen_value = eps.getEigenvalue(i)
+    if np.real(np.abs(eigen_value)) > 0.001:
+        print(i, eigen_value)
+print('Done.')
+
 vals = [(i, np.sqrt(-eps.getEigenvalue(i))) for i in range(eps.getConverged())]
 
 # Sort kz by real part
@@ -142,10 +164,12 @@ eh = fem.Function(V)
 
 kz_list = []
 
+print('Summary:')
 for i, kz in vals:
 #    print('-'*50)
 #    print('i:',i)
 #    print('kz:',kz)
+#    print(i, kz)
     # Save eigenvector in eh
     eps.getEigenpair(i, eh.x.petsc_vec)
 
@@ -185,10 +209,10 @@ for i, kz in vals:
         Et_dg.interpolate(eth)
 
         # Save solutions
-        with io.VTXWriter(mesh.comm, f"sols_test/Et_{i}.bp", Et_dg) as f:
+        with io.VTXWriter(mesh.comm, "sols_test/Et_%04i.bp"%i, Et_dg) as f:
             f.write(0.0)
 
-        with io.VTXWriter(mesh.comm, f"sols_test/Ez_{i}.bp", ezh) as f:
+        with io.VTXWriter(mesh.comm, "sols_test/Ez_%04i.bp"%i, ezh) as f:
             f.write(0.0)
 
 
