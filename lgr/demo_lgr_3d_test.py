@@ -31,7 +31,8 @@ print('Creating Mesh...')
 #mesh, cell, facet_tags = gmshio.read_from_msh('lgr_test.msh', MPI.COMM_WORLD, 0, gdim=2)
 #mesh, cell, facet_tags = gmshio.read_from_msh('t4.msh', MPI.COMM_WORLD, 0, gdim=2)
 
-mesh, cell, facet_tags = gmshio.read_from_msh('lgr_test.msh', MPI.COMM_WORLD, 0, gdim=2)
+mesh, cell, facet_tags = gmshio.read_from_msh('mesh/lgr_3d_test3.msh', MPI.COMM_WORLD, 0, gdim=3)
+#mesh, cell, facet_tags = gmshio.read_from_msh('box_mesh.msh', MPI.COMM_WORLD, 0, gdim=3)
 
 
 

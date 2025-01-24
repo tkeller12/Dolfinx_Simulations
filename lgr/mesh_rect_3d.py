@@ -7,8 +7,9 @@ import numpy as np
 
 a = 1.0
 b = 0.5
+d = 0.75
 
-Lc1 = 0.05
+Lc1 = 0.2
 
 gmsh.initialize()
 
@@ -31,16 +32,16 @@ factory.addLine(3, 4, 3)
 factory.addLine(4, 1, 4)
 
 factory.addCurveLoop([1, 2, 3, 4], 5)
-factory.addPlaneSurface([5], 6)
+surface = factory.addPlaneSurface([5], 6)
 
-factory.extrude([(2, 6)], 0, 0, 0, [8, 2], [0.5, 1]) # ((dimTags) dx, dy, dz) need extrusion for mesh
+factory.extrude([(2, surface)], 0, 0, d, numElements = [10]) # ((dimTags) dx, dy, dz) need extrusion for mesh
 gmsh.model.addPhysicalGroup(2, [6], 1) # need to add physcial groups
 
 factory.synchronize()
 
-gmsh.model.mesh.generate(2)
+gmsh.model.mesh.generate(3)
 
-gmsh.write("rect_test.msh")
+gmsh.write("rect_3d_test.msh")
 
 gmsh.finalize()
 

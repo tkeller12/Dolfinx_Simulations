@@ -22,8 +22,8 @@ y2 = sample_loop_radius + gap_length + return_loop_radius - np.sqrt(return_loop_
 x = gap_width/2
 
 # addPoint(x, y, z, mesh_size, tag)
-factory.addPoint(0, 0, 0, Lc1, 1) # (x, y, z, mesh_size, tag) center of sample loop
-factory.addPoint(sample_loop_radius, 0, 0, Lc1, 1) # (x, y, z, mesh_size, tag) center of sample loop
+factory.addPoint(0, 0, 0, Lc1, 1) # Center of sample loop
+factory.addPoint(sample_loop_radius, 0, 0, Lc1, 1) # 
 factory.addPoint(-x, y1, 0, Lc1, 2) # exact
 factory.addPoint(x, y1, 0, Lc1, 3) # exact
 

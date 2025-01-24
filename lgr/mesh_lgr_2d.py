@@ -49,11 +49,12 @@ factory.addCurveLoop([1, 2, 3, 4, 5, 6], 5)
 factory.addPlaneSurface([5], 6)
 
 factory.extrude([(2, 6)], 0, 0, 0) # ((dimTags) dx, dy, dz) need extrusion for mesh
-gmsh.model.addPhysicalGroup(2, [6], 1) # need to add physcial groups
 
 factory.synchronize()
 
-gmsh.model.mesh.generate(2)
+gmsh.model.addPhysicalGroup(2, [6], 1) # need to add physcial groups
+
+gmsh.model.mesh.generate(3)
 
 gmsh.write("lgr_test.msh")
 
