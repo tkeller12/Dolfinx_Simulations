@@ -26,25 +26,20 @@ from slepc4py import SLEPc
 #d = 0.04318
 
 c = 299792458 # speed of light, m/s
-#c = 1.
 
-def calc_freq(a, b, d, m, n, p):
-    c_unit = 1.
-
-    f = (c_unit / 2.) * np.sqrt((m / a)**2. + (n / b)**2.  + (p / d)**2.)
-
-    return f
+#target_freq = 9.5e9
+target_freq = 10e9
 
 def convert_eigenvalue_to_f(k_squared):
     return c * np.sqrt(k_squared) / (2 * np.pi)
 
 def convert_freq_to_target(freq):
-    target = (freq * 2 * np.pi)**2.
+    target = (freq * 2 * np.pi / c)**2.
     return target
 
 #freq_te102 = calc_freq(a, b, d, 1, 0, 2)
 
-#target_eigenvalue = convert_freq_to_target(freq_te102)
+target_eigenvalue = convert_freq_to_target(target_freq)
 #freq_te102 = np.pi * np.sqrt((1./a)**2. + (2./d)**2.)
 
 
@@ -56,7 +51,8 @@ mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
 
 degree = 2
-V = fem.functionspace(mesh, ('N1curl', degree))
+element_type = "N2curl"
+V = fem.functionspace(mesh, (element_type, degree))
 
 #lmbd0 = 1.0
 #k0 = 2 * np.pi / lmbd0
@@ -114,7 +110,8 @@ eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
 
 #eps.setTarget(50)
 #eps.setTarget(target_eigenvalue)
-eps.setTarget(.1)
+#eps.setTarget(.1)
+eps.setTarget(target_eigenvalue)
 
 eps.setDimensions(nev=4)
 print('Done.')
@@ -128,15 +125,15 @@ eps.errorView()
 print('Done.')
 
 
-#print('freq TE_102: %0.03f'%(c*freq_te102/1e9))
+#print('freq TE_102: %0.03f'%(freq_te102/1e9))
 
 print('Eigenvalues:')
 for i in range(eps.getConverged()):
     eigen_value = eps.getEigenvalue(i)
     mode_freq = convert_eigenvalue_to_f(np.real(eigen_value))
 #    print(i, eigen_value, np.sqrt(eigen_value), mode_freq)
-#    print(i, '%0.05f GHz'%(mode_freq/1e9))
-    print(i, eigen_value)
+    print(i, '%0.05f GHz'%(mode_freq/1e9))
+#    print(i, eigen_value)
 
 #    if np.real(np.abs(eigen_value)) > 0.001:
 #        print(i, eigen_value)

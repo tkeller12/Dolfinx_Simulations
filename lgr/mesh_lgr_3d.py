@@ -4,18 +4,23 @@ import sys
 
 import numpy as np
 
-gap_width = 0.2
-gap_length = 1
-sample_loop_radius = 1.0
-return_loop_radius = 2.0
-height = 5
+gap_width = 0.65e-3
+gap_length = 1.6e-3
+sample_loop_radius = 2.6e-3
+return_loop_radius = 3.15e-3
+height = 8e-3
 
-void_thickness = 0.2
-void_height = 5
+void_thickness = 1e-3
+void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.5
+Lc1 = 0.25 * sample_loop_radius
+Lc2 = 0.5 * sample_loop_radius
+Lc3 = 1.5 * sample_loop_radius
+
+lgr_extrude_divisions = 8
+void_extrude_divisions = 1
 
 gmsh.initialize()
 
@@ -31,18 +36,18 @@ x = gap_width/2
 ### ADD POINTS ###
 factory.addPoint(0, 0, -height/2, Lc1, 1) # (x, y, z, mesh_size, tag) center of sample loop
 factory.addPoint(x, y1, -height/2, Lc1, 2) # exact
-factory.addPoint(x, y2, -height/2, Lc1, 3) # exact
-factory.addPoint(0, sample_loop_radius + gap_length + return_loop_radius, -height/2, Lc1, 4) # center of return loop
-factory.addPoint(0, sample_loop_radius + gap_length + 2*return_loop_radius, -height/2, Lc1, 5) # center of return loop
-factory.addPoint(-x, y2, -height/2, Lc1, 6) # exact
+factory.addPoint(x, y2, -height/2, Lc2, 3) # exact
+factory.addPoint(0, sample_loop_radius + gap_length + return_loop_radius, -height/2, Lc2, 4) # center of return loop
+factory.addPoint(0, sample_loop_radius + gap_length + 2*return_loop_radius, -height/2, Lc2, 5) # center of return loop
+factory.addPoint(-x, y2, -height/2, Lc2, 6) # exact
 factory.addPoint(-x, y1, -height/2, Lc1, 7) # exact
 
 factory.addPoint(-x, -y1, -height/2, Lc1, 8) # exact
-factory.addPoint(-x, -y2, -height/2, Lc1, 9) # exact
+factory.addPoint(-x, -y2, -height/2, Lc2, 9) # exact
 
-factory.addPoint(0, -1*sample_loop_radius - gap_length - return_loop_radius, -height/2, Lc1, 10) # center of return loop
-factory.addPoint(0, -1*sample_loop_radius - gap_length - 2*return_loop_radius, -height/2, Lc1, 11) # center of return loop
-factory.addPoint(x, -y2, -height/2, Lc1, 12) # exact
+factory.addPoint(0, -1*sample_loop_radius - gap_length - return_loop_radius, -height/2, Lc2, 10) # center of return loop
+factory.addPoint(0, -1*sample_loop_radius - gap_length - 2*return_loop_radius, -height/2, Lc2, 11) # center of return loop
+factory.addPoint(x, -y2, -height/2, Lc2, 12) # exact
 factory.addPoint(x, -y1, -height/2, Lc1, 13) # exact
 
 
@@ -63,15 +68,15 @@ curve = factory.addPlaneSurface([11], 12)
 
 #resonator = factory.extrude([(2, curve)], 0, 0, height, heights = [0.2]) # ((dimTags) dx, dy, dz) need extrusion for mesh
 #resonator = factory.extrude([(2, curve)], 0, 0, height, [8,2],[0.5,1]) # ((dimTags) dx, dy, dz) need extrusion for mesh
-resonator = factory.extrude([(2, curve)], 0, 0, height, [8]) # ((dimTags) dx, dy, dz, [subdiv1,...]) need extrusion for mesh
+resonator = factory.extrude([(2, curve)], 0, 0, height, [lgr_extrude_divisions]) # ((dimTags) dx, dy, dz, [subdiv1,...]) 
 factory.synchronize()
 
 ### ADD TOP VOID ###
-p0 = factory.addPoint(0,0,height/2)
-p1 = factory.addPoint(void_radius,0,height/2)
-p2 = factory.addPoint(0,void_radius,height/2)
-p3 = factory.addPoint(-void_radius,0,height/2)
-p4 = factory.addPoint(0,-void_radius,height/2)
+p0 = factory.addPoint(0,0,height/2, Lc3)
+p1 = factory.addPoint(void_radius,0,height/2, Lc3)
+p2 = factory.addPoint(0,void_radius,height/2, Lc3)
+p3 = factory.addPoint(-void_radius,0,height/2, Lc3)
+p4 = factory.addPoint(0,-void_radius,height/2, Lc3)
 
 arc0 = factory.addCircleArc(p1, p0, p2)
 arc1 = factory.addCircleArc(p2, p0, p3)
@@ -84,11 +89,11 @@ curve_void = factory.addPlaneSurface([curve_loop])
 void_top = factory.extrude([(2, curve_void)], 0, 0, void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
 ### ADD Bottom VOID ###
-p0 = factory.addPoint(0,0,-height/2)
-p1 = factory.addPoint(void_radius,0,-height/2)
-p2 = factory.addPoint(0,void_radius,-height/2)
-p3 = factory.addPoint(-void_radius,0,-height/2)
-p4 = factory.addPoint(0,-void_radius,-height/2)
+p0 = factory.addPoint(0,0,-height/2, Lc3)
+p1 = factory.addPoint(void_radius,0,-height/2, Lc3)
+p2 = factory.addPoint(0,void_radius,-height/2, Lc3)
+p3 = factory.addPoint(-void_radius,0,-height/2, Lc3)
+p4 = factory.addPoint(0,-void_radius,-height/2, Lc3)
 
 arc0 = factory.addCircleArc(p1, p0, p2)
 arc1 = factory.addCircleArc(p2, p0, p3)
@@ -114,6 +119,16 @@ factory.synchronize()
 gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
 #gmsh.model.addPhysicalGroup(3, [4], name = 'Resonator')#, 1) # need to add physcial groups
 
+#gmsh.model.mesh.setAlgorithm(3, 1, 11)
+#gmsh.model.mesh.Algorithm3D(3, 1, 10)
+
+#gmsh.option.setNumber("Mesh.Algorithm3D", 10) #HXT
+#gmsh.option.setNumber("Mesh.Algorithm3D", 7) #MMG3D, horrible option
+
+#gmsh.option.setNumber("Mesh.Algorithm3D", 1) #Delaunay, default, horrible option
+
+gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
+#gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
 #gmsh.model.mesh.refine()
 
