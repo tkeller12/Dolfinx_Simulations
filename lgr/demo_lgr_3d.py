@@ -21,9 +21,9 @@ from slepc4py import SLEPc
 #b = 0.4
 #d = 1.7
 
-a = 0.02286
-b = 0.01016
-d = 0.04318
+#a = 0.02286
+#b = 0.01016
+#d = 0.04318
 
 c = 299792458 # speed of light, m/s
 #c = 1.
@@ -42,24 +42,21 @@ def convert_freq_to_target(freq):
     target = (freq * 2 * np.pi)**2.
     return target
 
-freq_te102 = calc_freq(a, b, d, 1, 0, 2)
+#freq_te102 = calc_freq(a, b, d, 1, 0, 2)
 
-target_eigenvalue = convert_freq_to_target(freq_te102)
+#target_eigenvalue = convert_freq_to_target(freq_te102)
 #freq_te102 = np.pi * np.sqrt((1./a)**2. + (2./d)**2.)
 
-nx = 8
-ny = 8
-nz = 12
 
-print('Creating Mesh...')
-mesh = create_box(MPI.COMM_WORLD, np.array([[0,0,0],[a,b,d]]), np.array([nx, ny, nz]), CellType.hexahedron)
+print('Importing Mesh...')
+mesh, cell, facet_tags = gmshio.read_from_msh('mesh/lgr_3d_test3.msh', MPI.COMM_WORLD, 0, gdim=3)
 print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
 
 degree = 2
-V = fem.functionspace(mesh, ('N2curl', degree))
+V = fem.functionspace(mesh, ('N1curl', degree))
 
 #lmbd0 = 1.0
 #k0 = 2 * np.pi / lmbd0
@@ -116,7 +113,8 @@ st.setFromOptions()
 eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
 
 #eps.setTarget(50)
-eps.setTarget(target_eigenvalue)
+#eps.setTarget(target_eigenvalue)
+eps.setTarget(.1)
 
 eps.setDimensions(nev=4)
 print('Done.')
@@ -130,14 +128,15 @@ eps.errorView()
 print('Done.')
 
 
-print('freq TE_102: %0.03f'%(c*freq_te102/1e9))
+#print('freq TE_102: %0.03f'%(c*freq_te102/1e9))
 
 print('Eigenvalues:')
 for i in range(eps.getConverged()):
     eigen_value = eps.getEigenvalue(i)
     mode_freq = convert_eigenvalue_to_f(np.real(eigen_value))
 #    print(i, eigen_value, np.sqrt(eigen_value), mode_freq)
-    print(i, '%0.05f GHz'%(mode_freq/1e9))
+#    print(i, '%0.05f GHz'%(mode_freq/1e9))
+    print(i, eigen_value)
 
 #    if np.real(np.abs(eigen_value)) > 0.001:
 #        print(i, eigen_value)
@@ -195,10 +194,10 @@ for i, kz in vals:
         B.interpolate(B_expr)
 
         # Save solutions
-        with io.VTXWriter(mesh.comm, "sols_test2/Et_%04i.bp"%i, Et_dg) as f:
+        with io.VTXWriter(mesh.comm, "sols_lgr/Et_%04i.bp"%i, Et_dg) as f:
             f.write(0.0)
 
-        with io.VTXWriter(mesh.comm, "sols_test2/B_%04i.bp"%i, B) as f:
+        with io.VTXWriter(mesh.comm, "sols_lgr/B_%04i.bp"%i, B) as f:
             f.write(0.0)
 
 

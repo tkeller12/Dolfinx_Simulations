@@ -4,24 +4,25 @@ import sys
 
 import numpy as np
 
-gap_width = 0.1
+gap_width = 0.2
 gap_length = 1
 sample_loop_radius = 1.0
 return_loop_radius = 2.0
-height = 1
+height = 5
 
 void_thickness = 0.1
-void_height = 1
+void_height = 5
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.5
+Lc1 = 0.4
 
 gmsh.initialize()
 
 gmsh.model.add('lgr')
 
-factory = gmsh.model.geo
+#factory = gmsh.model.geo
+factory = gmsh.model.occ
 
 y1 = np.sqrt(sample_loop_radius**2 - (gap_width/2)**2.)
 y2 = sample_loop_radius + gap_length + return_loop_radius - np.sqrt(return_loop_radius**2 - (gap_width/2)**2.)
@@ -96,20 +97,27 @@ curve_void = factory.addPlaneSurface([curve_loop])
 
 void_bottom = factory.extrude([(2, curve_void)], 0, 0, -void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
-factory.synchronize()
-#gmsh.model.addPhysicalGroup(3, [curve,void_top,void_bottom], name = 'LGR Resonator')#, 1) # need to add physcial groups
 
-#gmsh.model.addPhysicalGroup(3, [resonator, void_top, void_bottom], name = 'LGR Resonator')#, 1) # need to add physcial groups
+
+out1 = gmsh.model.occ.fuse([(3,1)],[(3,2)])
+out2 = gmsh.model.occ.fuse([(3,4)],[(3,3)])
+factory.synchronize()
+
 #gmsh.model.addPhysicalGroup(3, [1,2,3], name = 'LGR Resonator')#, 1) # need to add physcial groups
-gmsh.model.addPhysicalGroup(3, [1], name = 'LGR Resonator')#, 1) # need to add physcial groups
-gmsh.model.addPhysicalGroup(3, [2], name = 'Top Void')#, 1) # need to add physcial groups
-gmsh.model.addPhysicalGroup(3, [3], name = 'Bottom Void')#, 1) # need to add physcial groups
+#gmsh.model.addPhysicalGroup(3, [2], name = 'Top Void')#, 1) # need to add physcial groups
+#gmsh.model.addPhysicalGroup(3, [3], name = 'Bottom Void')#, 1) # need to add physcial groups
+#gmsh.model.addPhysicalGroup(3, [1,2,3], name = 'Resonator')#, 1) # need to add physcial groups
+
+gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
+
 gmsh.model.mesh.generate(3)
 
 gmsh.write("mesh/lgr_3d_test3.msh")
 
-print(void_bottom)
-print(void_bottom[0])
+#print(void_bottom)
+#print(void_bottom[0])
+#print(out1)
+#print(out2)
 
 gmsh.finalize()
 
