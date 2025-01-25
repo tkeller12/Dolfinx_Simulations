@@ -10,12 +10,12 @@ sample_loop_radius = 1.0
 return_loop_radius = 2.0
 height = 5
 
-void_thickness = 0.1
+void_thickness = 0.2
 void_height = 5
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.4
+Lc1 = 0.5
 
 gmsh.initialize()
 
@@ -61,7 +61,10 @@ factory.addLine(12, 13, 10) # (start, end, tag)
 factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 11)
 curve = factory.addPlaneSurface([11], 12)
 
-resonator = factory.extrude([(2, curve)], 0, 0, height) # ((dimTags) dx, dy, dz) need extrusion for mesh
+#resonator = factory.extrude([(2, curve)], 0, 0, height, heights = [0.2]) # ((dimTags) dx, dy, dz) need extrusion for mesh
+#resonator = factory.extrude([(2, curve)], 0, 0, height, [8,2],[0.5,1]) # ((dimTags) dx, dy, dz) need extrusion for mesh
+resonator = factory.extrude([(2, curve)], 0, 0, height, [8]) # ((dimTags) dx, dy, dz, [subdiv1,...]) need extrusion for mesh
+factory.synchronize()
 
 ### ADD TOP VOID ###
 p0 = factory.addPoint(0,0,height/2)
@@ -109,8 +112,10 @@ factory.synchronize()
 #gmsh.model.addPhysicalGroup(3, [1,2,3], name = 'Resonator')#, 1) # need to add physcial groups
 
 gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
+#gmsh.model.addPhysicalGroup(3, [4], name = 'Resonator')#, 1) # need to add physcial groups
 
 gmsh.model.mesh.generate(3)
+#gmsh.model.mesh.refine()
 
 gmsh.write("mesh/lgr_3d_test3.msh")
 
