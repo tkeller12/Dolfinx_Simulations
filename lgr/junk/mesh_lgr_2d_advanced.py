@@ -15,13 +15,13 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc0 = 0.01 * sample_loop_radius
+Lc0 = 0.10 * sample_loop_radius
 
 Lc1 = 0.5 * sample_loop_radius
 Lc2 = 1.0 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
-lgr_extrude_divisions = 16
+lgr_extrude_divisions = 8
 void_extrude_divisions = 1
 
 gmsh.initialize()
@@ -83,61 +83,16 @@ factory.addCircleArc(9, 10, 11, 11) # (start, center, end, tag)
 factory.addCircleArc(11, 10, 12, 12) # (start, center, end, tag)
 factory.addLine(12, 13, 13) # (start, end, tag)
 
-#factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 14)
-factory.addWire([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 14)
+factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 14)
 curve = factory.addPlaneSurface([14], 15)
 
-#resonator = factory.extrude([(2, curve)], 0, 0, height, heights = [0.2]) # ((dimTags) dx, dy, dz) need extrusion for mesh
-#resonator = factory.extrude([(2, curve)], 0, 0, height, [8,2],[0.5,1]) # ((dimTags) dx, dy, dz) need extrusion for mesh
 resonator = factory.extrude([(2, curve)], 0, 0, height, [lgr_extrude_divisions]) # ((dimTags) dx, dy, dz, [subdiv1,...]) 
 factory.synchronize()
 
-### ADD TOP VOID ###
-p0 = factory.addPoint(0,0,height/2, Lc3)
-p1 = factory.addPoint(void_radius,0,height/2, Lc3)
-p2 = factory.addPoint(0,void_radius,height/2, Lc3)
-p3 = factory.addPoint(-void_radius,0,height/2, Lc3)
-p4 = factory.addPoint(0,-void_radius,height/2, Lc3)
-
-arc0 = factory.addCircleArc(p1, p0, p2)
-arc1 = factory.addCircleArc(p2, p0, p3)
-arc2 = factory.addCircleArc(p3, p0, p4)
-arc3 = factory.addCircleArc(p4, p0, p1)
-
-curve_loop = factory.addCurveLoop([arc0, arc1, arc2, arc3])
-curve_void = factory.addPlaneSurface([curve_loop])
-
-void_top = factory.extrude([(2, curve_void)], 0, 0, void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
-
-### ADD Bottom VOID ###
-p0 = factory.addPoint(0,0,-height/2, Lc3)
-p1 = factory.addPoint(void_radius,0,-height/2, Lc3)
-p2 = factory.addPoint(0,void_radius,-height/2, Lc3)
-p3 = factory.addPoint(-void_radius,0,-height/2, Lc3)
-p4 = factory.addPoint(0,-void_radius,-height/2, Lc3)
-
-arc0 = factory.addCircleArc(p1, p0, p2)
-arc1 = factory.addCircleArc(p2, p0, p3)
-arc2 = factory.addCircleArc(p3, p0, p4)
-arc3 = factory.addCircleArc(p4, p0, p1)
-
-curve_loop = factory.addCurveLoop([arc0, arc1, arc2, arc3])
-curve_void = factory.addPlaneSurface([curve_loop])
-
-void_bottom = factory.extrude([(2, curve_void)], 0, 0, -void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
 
 
-out1 = gmsh.model.occ.fuse([(3,1)],[(3,2)])
-out2 = gmsh.model.occ.fuse([(3,4)],[(3,3)])
-factory.synchronize()
-
-#gmsh.model.addPhysicalGroup(3, [1,2,3], name = 'LGR Resonator')#, 1) # need to add physcial groups
-#gmsh.model.addPhysicalGroup(3, [2], name = 'Top Void')#, 1) # need to add physcial groups
-#gmsh.model.addPhysicalGroup(3, [3], name = 'Bottom Void')#, 1) # need to add physcial groups
-#gmsh.model.addPhysicalGroup(3, [1,2,3], name = 'Resonator')#, 1) # need to add physcial groups
-
-gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
+#gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
 #gmsh.model.addPhysicalGroup(3, [4], name = 'Resonator')#, 1) # need to add physcial groups
 
 #gmsh.model.mesh.setAlgorithm(3, 1, 11)
@@ -148,19 +103,21 @@ gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physc
 
 #gmsh.option.setNumber("Mesh.Algorithm3D", 1) #Delaunay, default, horrible option
 
-gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
+#gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
 #gmsh.model.mesh.refine()
 
-gmsh.write("lgr_3d_test001.msh")
+gmsh.write("lgr_2d_test3.msh")
 
 #print(void_bottom)
 #print(void_bottom[0])
 #print(out1)
 #print(out2)
+
 gmsh.fltk.run()
 
-
+# Finalize the GMSH API
 gmsh.finalize()
+
 

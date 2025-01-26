@@ -15,12 +15,12 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.25 * sample_loop_radius
-Lc2 = 0.5 * sample_loop_radius
+Lc1 = 0.5 * sample_loop_radius
+Lc2 = 0.75 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
-lgr_extrude_divisions = 8
-void_extrude_divisions = 1
+lgr_extrude_divisions = 20
+void_extrude_divisions = 4
 
 gmsh.initialize()
 
@@ -72,6 +72,7 @@ factory.addCircleArc(11, 10, 12, 9) # (start, center, end, tag)
 factory.addLine(12, 13, 10) # (start, end, tag)
 
 factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 11)
+#factory.addWire([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 11)
 curve = factory.addPlaneSurface([11], 12)
 
 #resonator = factory.extrude([(2, curve)], 0, 0, height, heights = [0.2]) # ((dimTags) dx, dy, dz) need extrusion for mesh
@@ -80,42 +81,53 @@ resonator = factory.extrude([(2, curve)], 0, 0, height, [lgr_extrude_divisions])
 factory.synchronize()
 
 ### ADD TOP VOID ###
-p0 = factory.addPoint(0,0,height/2, Lc3)
-p1 = factory.addPoint(void_radius,0,height/2, Lc3)
-p2 = factory.addPoint(0,void_radius,height/2, Lc3)
-p3 = factory.addPoint(-void_radius,0,height/2, Lc3)
-p4 = factory.addPoint(0,-void_radius,height/2, Lc3)
+#p0 = factory.addPoint(0,0,height/2, Lc3)
+#p1 = factory.addPoint(void_radius,0,height/2, Lc3)
+#p2 = factory.addPoint(0,void_radius,height/2, Lc3)
+#p3 = factory.addPoint(-void_radius,0,height/2, Lc3)
+#p4 = factory.addPoint(0,-void_radius,height/2, Lc3)
 
-arc0 = factory.addCircleArc(p1, p0, p2)
-arc1 = factory.addCircleArc(p2, p0, p3)
-arc2 = factory.addCircleArc(p3, p0, p4)
-arc3 = factory.addCircleArc(p4, p0, p1)
+#arc0 = factory.addCircleArc(p1, p0, p2)
+#arc1 = factory.addCircleArc(p2, p0, p3)
+#arc2 = factory.addCircleArc(p3, p0, p4)
+#arc3 = factory.addCircleArc(p4, p0, p1)
+c1 = factory.addCircle(0,0,height/2, void_radius)
 
-curve_loop = factory.addCurveLoop([arc0, arc1, arc2, arc3])
+#curve_loop = factory.addCurveLoop([arc0, arc1, arc2, arc3])
+curve_loop = factory.addCurveLoop([c1])
+#curve_loop = factory.addWire([arc0, arc1, arc2, arc3])
 curve_void = factory.addPlaneSurface([curve_loop])
 
-void_top = factory.extrude([(2, curve_void)], 0, 0, void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
+void_top = factory.extrude([(2, curve_void)], 0, 0, void_height, [], [], recombine = False) # ((dimTags) dx, dy, dz) need extrusion for mesh
+print('void_top',void_top)
+void_top = void_top[1]
 
 ### ADD Bottom VOID ###
-p0 = factory.addPoint(0,0,-height/2, Lc3)
-p1 = factory.addPoint(void_radius,0,-height/2, Lc3)
-p2 = factory.addPoint(0,void_radius,-height/2, Lc3)
-p3 = factory.addPoint(-void_radius,0,-height/2, Lc3)
-p4 = factory.addPoint(0,-void_radius,-height/2, Lc3)
+#p0 = factory.addPoint(0,0,-height/2, Lc3)
+#p1 = factory.addPoint(void_radius,0,-height/2, Lc3)
+#p2 = factory.addPoint(0,void_radius,-height/2, Lc3)
+#p3 = factory.addPoint(-void_radius,0,-height/2, Lc3)
+#p4 = factory.addPoint(0,-void_radius,-height/2, Lc3)
 
-arc0 = factory.addCircleArc(p1, p0, p2)
-arc1 = factory.addCircleArc(p2, p0, p3)
-arc2 = factory.addCircleArc(p3, p0, p4)
-arc3 = factory.addCircleArc(p4, p0, p1)
+c2 = factory.addCircle(0,0,-height/2, void_radius)
+curve_loop2 = factory.addCurveLoop([c2])
+curve_void2 = factory.addPlaneSurface([curve_loop2])
 
-curve_loop = factory.addCurveLoop([arc0, arc1, arc2, arc3])
-curve_void = factory.addPlaneSurface([curve_loop])
+#arc0 = factory.addCircleArc(p1, p0, p2)
+#arc1 = factory.addCircleArc(p2, p0, p3)
+#arc2 = factory.addCircleArc(p3, p0, p4)
+#arc3 = factory.addCircleArc(p4, p0, p1)
 
-void_bottom = factory.extrude([(2, curve_void)], 0, 0, -void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
+#curve_loop = factory.addCurveLoop([curve_void])
+curve_void = factory.addPlaneSurface([curve_loop2])
+
+void_bottom = factory.extrude([(2, curve_void2)], 0, 0, -void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
 
 
 out1 = gmsh.model.occ.fuse([(3,1)],[(3,2)])
+print(out1)
+#out1 = gmsh.model.occ.fuse([(3,1)],void_top)
 out2 = gmsh.model.occ.fuse([(3,4)],[(3,3)])
 factory.synchronize()
 
@@ -139,13 +151,14 @@ gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good opti
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
 #gmsh.model.mesh.refine()
+#gmsh.model.mesh.recombine()
 
 gmsh.write("mesh/lgr_3d_test3.msh")
 
-#print(void_bottom)
-#print(void_bottom[0])
-#print(out1)
-#print(out2)
+try:
+    gmsh.fltk.run()
+except:
+    pass
 
 gmsh.finalize()
 

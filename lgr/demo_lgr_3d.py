@@ -16,19 +16,10 @@ from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_en
 
 from slepc4py import SLEPc
 
-#waveguide parameters
-#a = 0.9
-#b = 0.4
-#d = 1.7
-
-#a = 0.02286
-#b = 0.01016
-#d = 0.04318
 
 c = 299792458 # speed of light, m/s
 
-#target_freq = 9.5e9
-target_freq = 10e9
+target_freq = 9e9
 
 def convert_eigenvalue_to_f(k_squared):
     return c * np.sqrt(k_squared) / (2 * np.pi)
@@ -37,10 +28,8 @@ def convert_freq_to_target(freq):
     target = (freq * 2 * np.pi / c)**2.
     return target
 
-#freq_te102 = calc_freq(a, b, d, 1, 0, 2)
 
 target_eigenvalue = convert_freq_to_target(target_freq)
-#freq_te102 = np.pi * np.sqrt((1./a)**2. + (2./d)**2.)
 
 
 print('Importing Mesh...')
@@ -53,10 +42,6 @@ mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 degree = 2
 element_type = "N2curl"
 V = fem.functionspace(mesh, (element_type, degree))
-
-#lmbd0 = 1.0
-#k0 = 2 * np.pi / lmbd0
-#eps_r = 1.
 
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
@@ -108,9 +93,6 @@ st.setFromOptions()
 
 eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
 
-#eps.setTarget(50)
-#eps.setTarget(target_eigenvalue)
-#eps.setTarget(.1)
 eps.setTarget(target_eigenvalue)
 
 eps.setDimensions(nev=4)
@@ -150,52 +132,52 @@ kz_list = []
 
 #print('Summary:')
 for i, kz in vals:
-#    print('-'*50)
-#    print('i:',i)
-#    print('kz:',kz)
-#    print(i, kz)
     # Save eigenvector in eh
     eps.getEigenpair(i, eh.x.petsc_vec)
 
     # Compute error for i-th eigenvalue
     error = eps.computeError(i, SLEPc.EPS.ErrorType.RELATIVE)
-#    print('Error:',error)
-#    if error > tol:
-#        print('***DID NOT CONVERGE!!!***')
 
     # Verify, save and visualize solution
-#    if error < tol and np.isclose(kz.imag, 0, atol=tol):
-    if True:
-        kz_list.append(kz)
-#        print('freq:', kz)
+    kz_list.append(kz)
+
+    eh.x.scatter_forward()
+
+    eth = eh
+
+    # Transform eth, ezh into Et and Ez
+    eth.x.array[:] = eth.x.array[:]
+
+    gdim = mesh.geometry.dim
+    V_dg = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
+    Et_dg = fem.Function(V_dg)
+    Et_dg.interpolate(eth)
+
+    B = fem.Function(V_dg)
+    B_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
+    B.interpolate(B_expr)
 
 
-#        print(f"eigenvalue: {-kz**2}")
-#        print(f"kz: {kz}")
-#        print(f"kz/k0: {kz / k0}")
+    V_grad = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
+    Grad = fem.Function(V_grad)
+    grad_form = ufl.grad(eth[0]) + ufl.grad(eth[1]) + ufl.grad(eth[2])
+    grad_expr = fem.Expression(grad_form, V_grad.element.interpolation_points())
+    Grad.interpolate(grad_expr)
 
-        eh.x.scatter_forward()
+    # Save solutions
+    with io.VTXWriter(mesh.comm, "sols_lgr/Et_%04i.bp"%i, Et_dg) as f:
+        f.write(0.0)
 
-        eth = eh
+    with io.VTXWriter(mesh.comm, "sols_lgr/B_%04i.bp"%i, B) as f:
+        f.write(0.0)
 
-        # Transform eth, ezh into Et and Ez
-        eth.x.array[:] = eth.x.array[:]
+    with io.VTXWriter(mesh.comm, "sols_lgr/Grad_%04i.bp"%i, Grad) as f:
+        f.write(0.0)
 
-        gdim = mesh.geometry.dim
-        V_dg = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
-        Et_dg = fem.Function(V_dg)
-        Et_dg.interpolate(eth)
-
-        B = fem.Function(V_dg)
-        B_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
-        B.interpolate(B_expr)
-
-        # Save solutions
-        with io.VTXWriter(mesh.comm, "sols_lgr/Et_%04i.bp"%i, Et_dg) as f:
-            f.write(0.0)
-
-        with io.VTXWriter(mesh.comm, "sols_lgr/B_%04i.bp"%i, B) as f:
-            f.write(0.0)
+#    grad_V = fem.Function(V)
+#    grad_form = ufl.grad(eth[0]) + ufl.grad(eth[1]) + ufl.grad(eth[2])
+#    grad_expr = fem.Expression(grad_form, V.element.interpolation_points())
+#    grad_V.interpolate(grad_expr)
 
 
 print('Script Done.')
