@@ -15,8 +15,10 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.25 * sample_loop_radius
-Lc2 = 0.5 * sample_loop_radius
+Lc0 = 0.01 * sample_loop_radius
+
+Lc1 = 0.5 * sample_loop_radius
+Lc2 = 1.0 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
 lgr_extrude_divisions = 8
@@ -33,6 +35,10 @@ y1 = np.sqrt(sample_loop_radius**2 - (gap_width/2)**2.)
 y2 = sample_loop_radius + gap_length + return_loop_radius - np.sqrt(return_loop_radius**2 - (gap_width/2)**2.)
 
 y3 = (y1 + y2) / 2 # midpoint
+
+y4 = (y1 + y2) / 2 - gap_length / 4
+
+y5 = (y1 + y2) / 2 + gap_length / 4
 
 x = gap_width/2
 
@@ -54,25 +60,31 @@ factory.addPoint(0, -1*sample_loop_radius - gap_length - 2*return_loop_radius, -
 factory.addPoint(x, -y2, -height/2, Lc2, 12) # exact
 factory.addPoint(x, -y1, -height/2, Lc1, 13) # exact
 
-#p_m1 = factory.addPoint(x, y3, -height/2, Lc1, 101) # exact
-#p_m2 = factory.addPoint(-x, y3, -height/2, Lc1, 102) # exact
-#p_m3 = factory.addPoint(-x, -y3, -height/2, Lc1, 101) # exact
-#p_m4 = factory.addPoint(x, -y3, -height/2, Lc1, 101) # exact
+p_m1 = factory.addPoint(x, y3, -height/2, Lc0, 101) # exact
+p_m2 = factory.addPoint(-x, y3, -height/2, Lc0, 102) # exact
+p_m3 = factory.addPoint(-x, -y3, -height/2, Lc0, 103) # exact
+p_m4 = factory.addPoint(x, -y3, -height/2, Lc0, 104) # exact
+
+p_y4 = factory.addPoint(x, y4, -height/2, Lc0, 105) # exact
+p_y5 = factory.addPoint(x, y5, -height/2, Lc0, 106) # exact
 
 ### ADD LINES ###
 factory.addCircleArc(13, 1, 2, 1) # (start, center, end, tag)
-factory.addLine(2, 3, 2) # (start, end, tag)
-factory.addCircleArc(3, 4, 5, 3) # (start, center, end, tag)
-factory.addCircleArc(5, 4, 6, 4) # (start, center, end, tag)
-factory.addLine(6, 7, 5) # (start, end, tag)
-factory.addCircleArc(7, 1, 8, 6) # (start, center, end, tag)
-factory.addLine(8, 9, 7) # (start, end, tag)
-factory.addCircleArc(9, 10, 11, 8) # (start, center, end, tag)
-factory.addCircleArc(11, 10, 12, 9) # (start, center, end, tag)
-factory.addLine(12, 13, 10) # (start, end, tag)
+factory.addLine(2, p_y4, 2) # (start, end, tag)
+factory.addLine(p_y4, p_y5, 3) # (start, end, tag)
+factory.addLine(p_y5, 3, 4) # (start, end, tag)
+factory.addCircleArc(3, 4, 5, 5) # (start, center, end, tag)
+factory.addCircleArc(5, 4, 6, 6) # (start, center, end, tag)
+factory.addLine(6, p_m2, 7) # (start, end, tag)
+factory.addLine(p_m2, 7, 8) # (start, end, tag)
+factory.addCircleArc(7, 1, 8, 9) # (start, center, end, tag)
+factory.addLine(8, 9, 10) # (start, end, tag)
+factory.addCircleArc(9, 10, 11, 11) # (start, center, end, tag)
+factory.addCircleArc(11, 10, 12, 12) # (start, center, end, tag)
+factory.addLine(12, 13, 13) # (start, end, tag)
 
-factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 11)
-curve = factory.addPlaneSurface([11], 12)
+factory.addCurveLoop([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 14)
+curve = factory.addPlaneSurface([14], 15)
 
 #resonator = factory.extrude([(2, curve)], 0, 0, height, heights = [0.2]) # ((dimTags) dx, dy, dz) need extrusion for mesh
 #resonator = factory.extrude([(2, curve)], 0, 0, height, [8,2],[0.5,1]) # ((dimTags) dx, dy, dz) need extrusion for mesh
