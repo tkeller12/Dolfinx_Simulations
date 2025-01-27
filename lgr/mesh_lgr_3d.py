@@ -15,11 +15,11 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 0.5 * sample_loop_radius
-Lc2 = 0.75 * sample_loop_radius
+Lc1 = 1.0 * sample_loop_radius
+Lc2 = 1.0 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
-lgr_extrude_divisions = 20
+lgr_extrude_divisions = 4
 void_extrude_divisions = 4
 
 gmsh.initialize()

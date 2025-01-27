@@ -12,7 +12,7 @@ from dolfinx import fem, io, plot
 from dolfinx.fem.petsc import assemble_matrix
 from dolfinx.io import gmshio
 
-from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities
+from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities, refine, compute_midpoints
 
 from slepc4py import SLEPc
 
@@ -173,6 +173,48 @@ for i, kz in vals:
 
     with io.VTXWriter(mesh.comm, "sols_lgr/Grad_%04i.bp"%i, Grad) as f:
         f.write(0.0)
+
+
+def refine_criteria(x, threshold = 0.):
+    return Grad.eval(mesh,x) > threshold
+#    values = Grad.Vector.getArray()
+values = np.abs(Grad.x.array)
+threshold = np.percentile(values, 85)
+#    refine_criteria(x, threshold = )
+print(values)
+print(mesh)
+#    print(mesh.cells[1])
+#    locate_entities(mesh, 1, refine_criteria)
+#    refine_cells = []
+#    for i norm in enumerate(threshold):
+#
+refined_mesh = refine(mesh, np.array([0, 1], dtype = np.int32))
+print(refined_mesh)
+refined_mesh = refined_mesh[0]
+num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+print('Num cells',num_cells)
+num_cells = refined_mesh.topology.index_map(refined_mesh.topology.dim).size_local
+print('Num cells 2',num_cells)
+print(refined_mesh.topology.dim)
+print(refined_mesh.name)
+print(refined_mesh.topology)
+print(refined_mesh.geometry.x)
+
+midpoints = compute_midpoints(mesh, 3, np.array([1], np.int32))
+print('-'*50)
+print(midpoints)
+print(midpoints.shape)
+#    refine = mesh.locate_entities(msh, dim-1, refine_criteria)
+#for ix in range(num_cells):
+#    x0 = (mesh.geometry.x[0] + mesh.geometry.x[1] + mesh.geometry.x[2]) / 2.0
+#    tree = bb_tree(mesh, mesh.geometry.dim)
+#    cell_candidates = compute_collisions_points(tree, x0)
+#    cell = compute_colliding_cells(mesh, cell_candidates, x0)
+#    cell = cell[ix]
+#    Grad.eval(x0, first_cell)[:3]
+    
+
+
 
 #    grad_V = fem.Function(V)
 #    grad_form = ufl.grad(eth[0]) + ufl.grad(eth[1]) + ufl.grad(eth[2])
