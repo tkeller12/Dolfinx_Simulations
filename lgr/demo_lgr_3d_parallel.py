@@ -46,8 +46,8 @@ print('Done.')
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
 
-degree = 2
-element_type = "N2curl"
+degree = 3
+element_type = "N1curl"
 V = fem.functionspace(mesh, (element_type, degree))
 
 u = ufl.TrialFunction(V)
@@ -163,7 +163,9 @@ for i, kz in vals:
     eth.x.array[:] = eth.x.array[:]
 
     gdim = mesh.geometry.dim
-    V_dg = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
+#    V_dg = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
+    V_dg = fem.functionspace(mesh, ("CG", 5, (gdim,)))
+#    V_dg = fem.functionspace(mesh, ("Lagrange", 5, (gdim,)))
     Et_dg = fem.Function(V_dg)
     Et_dg.interpolate(eth)
 
@@ -185,39 +187,39 @@ for i, kz in vals:
     with io.VTXWriter(mesh.comm, "sols_lgr/B_%04i.bp"%i, B) as f:
         f.write(0.0)
 
-    with io.VTXWriter(mesh.comm, "sols_lgr/Grad_%04i.bp"%i, Grad) as f:
-        f.write(0.0)
-
-
-def refine_criteria(x, threshold = 0.):
-    return Grad.eval(mesh,x) > threshold
-#    values = Grad.Vector.getArray()
-values = np.abs(Grad.x.array)
-threshold = np.percentile(values, 85)
-#    refine_criteria(x, threshold = )
-print(values)
-print(mesh)
+#    with io.VTXWriter(mesh.comm, "sols_lgr/Grad_%04i.bp"%i, Grad) as f:
+#        f.write(0.0)
+#
+#
+#def refine_criteria(x, threshold = 0.):
+#    return Grad.eval(mesh,x) > threshold
+##    values = Grad.Vector.getArray()
+#values = np.abs(Grad.x.array)
+#threshold = np.percentile(values, 85)
+##    refine_criteria(x, threshold = )
+#print(values)
+#print(mesh)
 #    print(mesh.cells[1])
 #    locate_entities(mesh, 1, refine_criteria)
 #    refine_cells = []
 #    for i norm in enumerate(threshold):
 #
-refined_mesh = refine(mesh, np.array([0, 1], dtype = np.int32))
-print(refined_mesh)
-refined_mesh = refined_mesh[0]
-num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
-print('Num cells',num_cells)
-num_cells = refined_mesh.topology.index_map(refined_mesh.topology.dim).size_local
-print('Num cells 2',num_cells)
-print(refined_mesh.topology.dim)
-print(refined_mesh.name)
-print(refined_mesh.topology)
-print(refined_mesh.geometry.x)
-
-midpoints = compute_midpoints(mesh, 3, np.array([1], np.int32))
-print('-'*50)
-print(midpoints)
-print(midpoints.shape)
+#refined_mesh = refine(mesh, np.array([0, 1], dtype = np.int32))
+#print(refined_mesh)
+#refined_mesh = refined_mesh[0]
+#num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+#print('Num cells',num_cells)
+#num_cells = refined_mesh.topology.index_map(refined_mesh.topology.dim).size_local
+#print('Num cells 2',num_cells)
+#print(refined_mesh.topology.dim)
+#print(refined_mesh.name)
+#print(refined_mesh.topology)
+#print(refined_mesh.geometry.x)
+#
+#midpoints = compute_midpoints(mesh, 3, np.array([1], np.int32))
+#print('-'*50)
+#print(midpoints)
+#print(midpoints.shape)
 #    refine = mesh.locate_entities(msh, dim-1, refine_criteria)
 #for ix in range(num_cells):
 #    x0 = (mesh.geometry.x[0] + mesh.geometry.x[1] + mesh.geometry.x[2]) / 2.0

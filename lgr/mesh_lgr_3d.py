@@ -15,7 +15,7 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 1.0 * sample_loop_radius
+Lc1 = 0.5 * sample_loop_radius
 Lc2 = 1.0 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
@@ -151,7 +151,30 @@ gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good opti
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.refine()
+#gmsh.model.mesh.refine()
+#gmsh.model.mesh.refine()
 #gmsh.model.mesh.recombine()
+
+# Get all elements in the mesh
+#element_tags, element_node_tags = gmsh.model.mesh.getElements()
+#element_tags = gmsh.model.mesh.getElements(3)
+element_types, element_tags, element_node_tags = gmsh.model.mesh.getElements(3)
+
+# Print the element numbers
+ix = 0
+for tag in element_tags:
+#    print(tag)
+    ix += len(tag)
+    print(type(tag))
+    print("Element number:", tag)
+#    for each in tag:
+#        try:
+#            ix += len(each)
+#        except:
+#            pass
+print('-'*50)
+print('Total Elements:', ix)
+print('-'*50)
 
 gmsh.write("mesh/lgr_3d_test3.msh")
 
