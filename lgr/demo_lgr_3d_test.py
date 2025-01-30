@@ -229,7 +229,7 @@ for i, kz in vals:
     print('edge_index:', edge_index)
     print('type(edge_index):', type(edge_index))
 
-    new_mesh = refine(mesh, edge_index.astype(np.int32))#, True)
+    new_mesh = refine(mesh, edge_index.astype(np.int32)) # works
 #    new_mesh = refine(mesh, [1,2,3], True)
 #    new_mesh = refine(mesh, [1,2,3])
 #    new_mesh = refine(mesh, np.array([0,1,2,3])) # this works

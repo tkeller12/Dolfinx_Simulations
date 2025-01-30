@@ -15,7 +15,7 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 1.5 * sample_loop_radius
+Lc1 = 1.0 * sample_loop_radius
 Lc2 = 1.5 * sample_loop_radius
 Lc3 = 1.5 * sample_loop_radius
 
