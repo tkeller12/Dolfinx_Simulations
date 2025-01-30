@@ -182,15 +182,23 @@ for i, kz in vals:
     B_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
     B.interpolate(B_expr)
 
-    V_G = fem.functionspace(mesh, ("DG", 0, (gdim,)))
+#    V_G = fem.functionspace(mesh, ("DG", 0, (gdim,)))
+    V_G = fem.functionspace(mesh, ("DG", 0, (1,)))
+#    G_element = element('DG', mesh.ufl_cell(), degree = 1)
+#    V_G = fem.FunctionSpace(mesh, G_element)
+#    V_G = fem.FunctionSpace(mesh, ("DG", 0, (1,)))
     G = fem.Function(V_G)
-    G_form = ufl.grad(eth[0]) + ufl.grad(eth[1]) + ufl.grad(eth[2])
+#    G_form = ufl.grad(eth[0]) + ufl.grad(eth[1]) + ufl.grad(eth[2])
+#    G_form = ufl.grad(eth[0]) # 1d
+    G_form = ufl.inner(ufl.grad(eth),ufl.grad(eth))
+    print('ufl_shape:', G_form.ufl_shape)
     G_expr = fem.Expression(G_form, V_G.element.interpolation_points())
     print('Interplating...')
     G.interpolate(G_expr)
     print('here')
 
     ### ORDER IS 3x longer than it should be...
+    # do I need a scalar space?
 
     order = np.argsort(G.x.array)
     print('G.x.array:', G.x.array)
@@ -199,6 +207,7 @@ for i, kz in vals:
     print('len(order):', len(order))
     cell_index = order[-int(0.3*order.size):-1]
     mesh.topology.create_connectivity(3, 1)
+    mesh.topology.create_connectivity(1, 3)
     print(len(cell_index))
 #    mesh.topology.create_connectivity(1, 3)
 #    mesh.topology.create_connectivity(2, 3)
@@ -206,16 +215,25 @@ for i, kz in vals:
 #    edge_index = compute_incident_entities(mesh.topology, cell_index.astype(np.int32), 3, 1)
     print('cell_index:', cell_index)
     num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
-    cells_array = np.array(range(num_cells)).astype(np.int32)
-    edge_index = compute_incident_entities(mesh.topology, cells_array, 3, 1)
+    print('mesh.topology.dim:',mesh.topology.dim)
+    print('sizes:')
+    print(mesh.topology.index_map(0).size_local)
+    print(mesh.topology.index_map(1).size_local)
+    print(mesh.topology.index_map(2).size_local)
+    print(mesh.topology.index_map(3).size_local)
+#    cells_array = np.array(range(num_cells)).astype(np.int32) # fake data for test
+
+    edge_index = compute_incident_entities(mesh.topology, cell_index, 3, 1)
+#    edge_index = compute_incident_entities(mesh.topology, cells_array, 1, 3)
 #    edge_index = compute_incident_entities(mesh.topology, np.array([0]).astype(np.int32), 3, 1)
     print('edge_index:', edge_index)
+    print('type(edge_index):', type(edge_index))
 
-#    new_mesh = refine(mesh, edge_index.astype(np.int32), True)
+    new_mesh = refine(mesh, edge_index.astype(np.int32))#, True)
 #    new_mesh = refine(mesh, [1,2,3], True)
 #    new_mesh = refine(mesh, [1,2,3])
 #    new_mesh = refine(mesh, np.array([0,1,2,3])) # this works
-    new_mesh = refine(mesh) # this works
+#    new_mesh = refine(mesh) # this works
     print(new_mesh)
     new_mesh = new_mesh[0]
     num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
