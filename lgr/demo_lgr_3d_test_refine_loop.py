@@ -53,7 +53,7 @@ nev = 4
 
 degree = 2
 element_type = "N2curl"
-max_run_ix = 7
+max_run_ix = 3
 #run_ix = 3
 freq_list = []
 
@@ -184,10 +184,18 @@ for run_ix in range(max_run_ix):
         G.interpolate(G_expr)
 
 
-        order = np.argsort(G.x.array)
+        # method 1
+#        order = np.argsort(G.x.array)
 #        cell_index = order[-int(0.3*order.size):-1] # 30% refinement
-        cell_index = order[-int(0.05*order.size):-1] # 5% refinement
-#        cell_index = order[-int(0.02*order.size):-1] # 5% refinement
+#        cell_index = order[-int(0.05*order.size):-1] # 5% refinement
+#        cell_index = order[-int(0.02*order.size):-1] # 2% refinement
+
+        # method 2
+        percent_refinement = 1
+        threshold = np.percentile(G.x.array, 100 - percent_refinement)
+        cell_index = np.arange(len(G.x.array))[G.x.array > threshold]
+
+
         mesh.topology.create_connectivity(3, 1)
         mesh.topology.create_connectivity(1, 3)
         num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
