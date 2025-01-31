@@ -48,21 +48,23 @@ mpi_print('Done.')
 #mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 #gdim = mesh.geometry.dim
 
-
 nev = 4
 
-percent_refinement = 5.0
+percent_refinement = 1.0
 degree = 2
 interpolation_degree = 3
 element_type = "N2curl"
 #degree = 1
 #element_type = "N1curl"
-max_run_ix = 6
+max_passes = 3
+min_passes = 2
 freq_list = []
+mesh_cells_list = []
 
-for run_ix in range(max_run_ix):
+for run_ix in range(max_passes):
     mpi_print('RUN IX %i'%run_ix)
     num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+    mesh_cells_list.append(num_cells)
     mpi_print('Cells: %i'%num_cells)
     mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
     gdim = mesh.geometry.dim
@@ -237,5 +239,6 @@ for run_ix in range(max_run_ix):
 
 
 mpi_print('Script Done.')
+mpi_print('-'*50)
 for freq_ix, freq_value in enumerate(freq_list):
-    mpi_print('%i, %0.05f'%(freq_ix,freq_value))
+    mpi_print('%i, %i, %0.05f'%(freq_ix, mesh_cells_list[freq_ix],freq_value))
