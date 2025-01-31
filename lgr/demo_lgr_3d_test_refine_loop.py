@@ -74,15 +74,18 @@ def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, mi
 
 nev = 4
 
-percent_refinement = 1.0
-degree = 2
 interpolation_degree = 3
+percent_refinement = 0.5
+#degree = 2
+#element_type = "N2curl"
+
+degree = 2
+interpolation_degree = int(np.max([degree, interpolation_degree]))
 element_type = "N2curl"
-#degree = 1
-#element_type = "N1curl"
+
 max_passes = 10
-min_passes = 1
-max_delta_freq = 0.002
+min_passes = 4
+max_delta_freq = 0.001
 freq_list = []
 mesh_cells_list = []
 
