@@ -51,10 +51,13 @@ mpi_print('Done.')
 
 nev = 4
 
+percent_refinement = 5.0
 degree = 2
+interpolation_degree = 3
 element_type = "N2curl"
-max_run_ix = 3
-#run_ix = 3
+#degree = 1
+#element_type = "N1curl"
+max_run_ix = 6
 freq_list = []
 
 for run_ix in range(max_run_ix):
@@ -169,7 +172,8 @@ for run_ix in range(max_run_ix):
         eth.x.array[:] = eth.x.array[:]
 
         gdim = mesh.geometry.dim
-        V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
+#        V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
+        V_dg = fem.functionspace(mesh, ("CG", interpolation_degree, (gdim,)))
         Et_dg = fem.Function(V_dg)
         Et_dg.interpolate(eth)
 
@@ -184,17 +188,9 @@ for run_ix in range(max_run_ix):
         G.interpolate(G_expr)
 
 
-        # method 1
-#        order = np.argsort(G.x.array)
-#        cell_index = order[-int(0.3*order.size):-1] # 30% refinement
-#        cell_index = order[-int(0.05*order.size):-1] # 5% refinement
-#        cell_index = order[-int(0.02*order.size):-1] # 2% refinement
-
-        # method 2
-        percent_refinement = 1
-        threshold = np.percentile(G.x.array, 100 - percent_refinement)
+        # Find cells to refine
+        threshold = np.percentile(G.x.array, 100-percent_refinement)
         cell_index = np.arange(len(G.x.array))[G.x.array > threshold]
-
 
         mesh.topology.create_connectivity(3, 1)
         mesh.topology.create_connectivity(1, 3)
@@ -202,7 +198,21 @@ for run_ix in range(max_run_ix):
 
         edge_index = compute_incident_entities(mesh.topology, cell_index, 3, 1)
 
-        new_mesh = refine(mesh, edge_index.astype(np.int32)) # works
+        #### select edges of each cell to split
+        edges_to_split = []
+        for ix in cell_index:
+            this_cell = np.array([ix]).astype(np.int32)
+            edge_index = compute_incident_entities(mesh.topology, this_cell, 3, 1)
+            sizes = mesh.h(1, edge_index)
+
+            edge_to_split = edge_index[np.argmax(sizes)]
+            edges_to_split.append(edge_to_split)
+
+        edges_to_split = np.array(edges_to_split).astype(np.int32)
+
+
+
+        new_mesh = refine(mesh, edges_to_split.astype(np.int32)) # new
         new_mesh = new_mesh[0]
         num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
         num_cells = new_mesh.topology.index_map(new_mesh.topology.dim).size_local
@@ -224,6 +234,7 @@ for run_ix in range(max_run_ix):
             temp_mesh = new_mesh # set mesh equal to new mesh   
 
     mesh = temp_mesh
+
 
 mpi_print('Script Done.')
 for freq_ix, freq_value in enumerate(freq_list):
