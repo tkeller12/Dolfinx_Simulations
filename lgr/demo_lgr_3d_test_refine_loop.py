@@ -48,6 +48,30 @@ mpi_print('Done.')
 #mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 #gdim = mesh.geometry.dim
 
+def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, min_passes = 0):
+    '''
+    return:
+    bool: Should stop simulation
+    bool: Convergence criteria met
+    '''
+
+    stop_simulation = False
+    converged = False
+    if (current_pass+1) >= max_passes:
+        stop_simulation = True
+
+    if len(criteria) >= 2:
+        previous_value = criteria[-2]
+        current_value = criteria[-1]
+        if (np.abs(previous_value - current_value) / current_value) < delta:
+            converged = True
+
+
+    if converged and (current_pass > min_passes):
+        stop_simulation = True
+    return stop_simulation, converged
+
+
 nev = 4
 
 percent_refinement = 1.0
@@ -56,12 +80,16 @@ interpolation_degree = 3
 element_type = "N2curl"
 #degree = 1
 #element_type = "N1curl"
-max_passes = 3
-min_passes = 2
+max_passes = 10
+min_passes = 1
+max_delta_freq = 0.002
 freq_list = []
 mesh_cells_list = []
 
+passes = 0
+
 for run_ix in range(max_passes):
+    passes += 1
     mpi_print('RUN IX %i'%run_ix)
     num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
     mesh_cells_list.append(num_cells)
@@ -237,8 +265,32 @@ for run_ix in range(max_passes):
 
     mesh = temp_mesh
 
+    converged = False
+#    if len(freq_list) >= 2:
+#        previous_value = freq_list[-2]
+#        current_value = freq_list[-1]
+#        delta = 0.001
+#        if (np.abs(previous_value - current_value) / current_value) < delta:
+#            converged = True
+#    mpi_print('Converged? %s'%(converged))
+
+    stop_simulation, converged = check_convergence(freq_list, run_ix, delta = max_delta_freq, max_passes = max_passes, min_passes = min_passes)
+
+    if stop_simulation:
+        break
+
+
 
 mpi_print('Script Done.')
 mpi_print('-'*50)
 for freq_ix, freq_value in enumerate(freq_list):
     mpi_print('%i, %i, %0.05f'%(freq_ix, mesh_cells_list[freq_ix],freq_value))
+
+mpi_print('-'*50)
+if converged:
+    
+    mpi_print('Simulation Converged after %i passes'%passes)
+else:
+    mpi_print('DID NOT CONVERGE!')
+
+mpi_print('-'*50)

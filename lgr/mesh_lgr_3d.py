@@ -15,9 +15,9 @@ void_height = 5e-3
 void_radius = sample_loop_radius+gap_length+2*return_loop_radius+void_thickness
 
 
-Lc1 = 1.0 * sample_loop_radius
-Lc2 = 1.5 * sample_loop_radius
-Lc3 = 1.5 * sample_loop_radius
+Lc1 = 0.6 * sample_loop_radius
+Lc2 = 1.0 * sample_loop_radius
+Lc3 = 1.0 * sample_loop_radius
 
 lgr_extrude_divisions = 4
 void_extrude_divisions = 4
@@ -150,7 +150,7 @@ gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physc
 gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
-gmsh.model.mesh.refine()
+#gmsh.model.mesh.refine()
 #gmsh.model.mesh.refine()
 #gmsh.model.mesh.refine()
 #gmsh.model.mesh.recombine()
