@@ -72,6 +72,7 @@ def addMultiPointLine(startTag, endTag, N = 100):
         points_list = [startTag]
         for ix in range(N-2):
             point = factory.addPoint(x0+(ix+1)*dx,y0+(ix+1)*dy,z0+(ix+1)*dz)
+            gmsh.model.geo.mesh.setSize([(0,point)], 1e-6)
             points_list.append(point)
         points_list.append(endTag)
 
@@ -84,10 +85,14 @@ def addMultiPointLine(startTag, endTag, N = 100):
 
 
 def addMultiPointRectangle(x, y, z, dx, dy, N_x = 200, N_y = 200):
-    p0 = factory.addPoint(x,y,z, 1e-3)
-    p1 = factory.addPoint(x+dx,y,z, 1e-3)
-    p2 = factory.addPoint(x+dx,y+dy,z, 1e-3)
-    p3 = factory.addPoint(x,y+dy,z, 1e-3)
+    p0 = factory.addPoint(x,y,z)
+    p1 = factory.addPoint(x+dx,y,z)
+    p2 = factory.addPoint(x+dx,y+dy,z)
+    p3 = factory.addPoint(x,y+dy,z)
+    gmsh.model.geo.mesh.setSize([(0,p0)], 1000)
+    gmsh.model.geo.mesh.setSize([(0,p1)], 1000)
+    gmsh.model.geo.mesh.setSize([(0,p2)], 1000)
+    gmsh.model.geo.mesh.setSize([(0,p3)], 1000)
 
     lines = addMultiPointLine(p0, p1, N = N_x)
     lines += addMultiPointLine(p1, p2, N = N_y)

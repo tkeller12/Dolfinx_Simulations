@@ -11,6 +11,9 @@ factory = gmsh.model.occ
 def addMultiPointLine(startTag, endTag, N = 10):
     if N <= 2:
         line = factory.addLine(startTag, endTag)
+#        factory.setTransfiniteCurve(line, 10)
+        gmsh.model.geo.mesh.setTransfiniteCurve(line, 20)
+        return [line]
 
     else:
         factory.synchronize()
@@ -34,6 +37,10 @@ def addMultiPointLine(startTag, endTag, N = 10):
 
         return lines_list
 
+#        coord = gmsh.model.mesh.getNode(startTag)
+#        dx = (x2-x1) / (N-1)
+#
+#    return line
 
 def addMultiPointRectangle(x, y, z, dx, dy, N_x = 10, N_y = 10):
     p0 = factory.addPoint(x,y,z)
@@ -50,19 +57,41 @@ def addMultiPointRectangle(x, y, z, dx, dy, N_x = 10, N_y = 10):
 
     return rect
 
-curve = addMultiPointRectangle(0, 0, 0, 1, 2, N_x = 10, N_y = 10)
+curve = addMultiPointRectangle(0, 0, 0, 1, 2, N_x = 20, N_y = 20)
 plane = factory.addPlaneSurface([curve])
 
 print(plane)
+circle = factory.addCircle(0,0,0, 1)
+print(circle)
+circle_loop = factory.addCurveLoop([circle])
+circle_plane = factory.addPlaneSurface([circle_loop])
 
-extrude = factory.extrude([(2,plane)], 0, 0, 1, [5])
+
+#new_plane = factory.fuse([(2,plane)],[(2,circle_plane)])
+#new_plane = factory.fuse([(2,circle_plane)],[(2,plane)])
+
+
+
+#extrude = factory.extrude([(2,plane)], 0, 0, 1, [5])
+extrude = factory.extrude([(2,plane)], 0, 0, 1)
+print(extrude)
+#circle_extrude = factory.extrude([(2,circle_plane)], 0, 0, 1, [5])
+circle_extrude = factory.extrude([(2,circle_plane)], 0, 0, 1)
+print(circle_extrude)
+
+#fused = factory.fuse([(3,extrude)],[(3,circle_extrude)])
+#fused = factory.fuse([(3,1)],[(3,2)])
+#print(fused)
+fragment = factory.fragment([(3,1)],[(3,2)])
+print(fragment)
 
 factory.synchronize()
 
 
-gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
+#gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
+#gmsh.model.mesh.generate(2)
 
 #
 #x1 = 0
