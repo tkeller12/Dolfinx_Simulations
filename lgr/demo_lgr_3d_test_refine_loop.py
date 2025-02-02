@@ -75,16 +75,17 @@ def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, mi
 nev = 4
 
 interpolation_degree = 3
-percent_refinement = 1
+percent_refinement = 2.
 #degree = 2
 #element_type = "N2curl"
 
-degree = 3
+degree = 2
 interpolation_degree = int(np.max([degree, interpolation_degree]))
 element_type = "N2curl"
+#element_type = "N1curl"
 
-max_passes = 8
-min_passes = 4
+max_passes = 6
+min_passes = 2
 max_delta_freq = 0.0001
 freq_list = []
 mesh_cells_list = []
@@ -254,10 +255,12 @@ for run_ix in range(max_passes):
         # Save solutions
         mpi_print('Saving solution %i'%run_ix)
         if i < nev:
-            with io.VTXWriter(mesh.comm, "sols_lgr_%i/Et_%04i.bp"%(run_ix,i), Et_dg) as f:
+#            with io.VTXWriter(mesh.comm, "sols_lgr_%i/Et_%04i.bp"%(run_ix,i), Et_dg) as f:
+            with io.VTXWriter(mesh.comm, "sols_lgr_Et_%04i/pass_%04i.bp"%(i,run_ix), Et_dg) as f:
                 f.write(0.0)
 
-            with io.VTXWriter(mesh.comm, "sols_lgr_%i/B_%04i.bp"%(run_ix,i), B) as f:
+#            with io.VTXWriter(mesh.comm, "sols_lgr_%i/B_%04i.bp"%(run_ix,i), B) as f:
+            with io.VTXWriter(mesh.comm, "sols_lgr_B_%04i/pass_%04i.bp"%(i,run_ix), B) as f:
                 f.write(0.0)
 
         # Update mesh for eigenvector closest to target eigenvalue

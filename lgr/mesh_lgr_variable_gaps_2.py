@@ -8,18 +8,22 @@ gmsh.model.add("2D_Rectangle")
 
 factory = gmsh.model.occ
 
-sample_loop_radius = 1.5e-3
-return_loop_radius = 3.0e-3
-gap_width = 0.2e-3
-gap_length = 1e-3
-height = 5.0e-3
+sample_loop_radius = 2.6e-3
+return_loop_radius = 3.15e-3
+gap_width = 0.65e-3
+gap_length = 1.6e-3
+height = 8.0e-3
 
-void_thickness = 2e-3
+void_thickness = 1e-3
 void_radius = sample_loop_radius + gap_length + 2*return_loop_radius + void_thickness
 void_height = 5e-3
 
 z = -height/2
 num_gaps = 2
+
+sample_loop_sides = 20
+return_loop_sides = 16
+void_sides = 36
 
 def addPolygon(x, y, z, radius=1.0, N = 20):
     """
@@ -136,7 +140,7 @@ def loop_gap_resonator(r0, r1, gap_width, gap_length, gaps = 2):
 
 
     # Add sample Loop
-    sample_loop = addLoop(0, 0, z, theta = 0, r = r0)
+    sample_loop = addLoop(0, 0, z, theta = 0, r = r0, sides = sample_loop_sides)
 
     fused_dim_tag = [(2,sample_loop)]
 
@@ -153,7 +157,7 @@ def loop_gap_resonator(r0, r1, gap_width, gap_length, gaps = 2):
     for ix in range(gaps):
         print(ix)
         theta = ix * (360./gaps)
-        return_loop = addLoop(r0+r1+gap_length, 0, z, r1, theta)
+        return_loop = addLoop(r0+r1+gap_length, 0, z, r1, theta, return_loop_sides)
         out = factory.fuse(fused_dim_tag,[(2, return_loop)])
         fused_dim_tag = out[0]
 
@@ -165,13 +169,13 @@ lgr = loop_gap_resonator(sample_loop_radius, return_loop_radius, gap_width, gap_
 lgr_3d = factory.extrude(lgr, 0, 0, height, [10]) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
 ### VOID TOP ###
-top_void_poly = addPolygon(0,0,height/2, void_radius, N = 16)
+top_void_poly = addPolygon(0,0,height/2, void_radius, N = void_sides)
 top_void_plane = factory.addPlaneSurface([top_void_poly])
 top_void = factory.extrude([(2, top_void_plane)], 0, 0, void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
 
 ### VOID Bottom ###
-bottom_void_poly = addPolygon(0,0,-height/2, void_radius, N = 16)
+bottom_void_poly = addPolygon(0,0,-height/2, void_radius, N = void_sides)
 bottom_void_plane = factory.addPlaneSurface([bottom_void_poly])
 bottom_void = factory.extrude([(2, bottom_void_plane)], 0, 0, -void_height) # ((dimTags) dx, dy, dz) need extrusion for mesh
 
@@ -207,7 +211,7 @@ print('-'*50)
 
 
 
-gmsh.write("lgr_test001.msh")
+gmsh.write("mesh/lgr_3d_test3.msh")
 
 # Run the GMSH GUI to visualize the mesh (comment out if you don't want to use the GUI)
 gmsh.fltk.run()

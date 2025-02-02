@@ -150,7 +150,7 @@ gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physc
 #gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
 gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
-#gmsh.model.mesh.refine()
+gmsh.model.mesh.refine()
 #gmsh.model.mesh.refine()
 #gmsh.model.mesh.refine()
 #gmsh.model.mesh.recombine()
@@ -167,11 +167,6 @@ for tag in element_tags:
     ix += len(tag)
     print(type(tag))
     print("Element number:", tag)
-#    for each in tag:
-#        try:
-#            ix += len(each)
-#        except:
-#            pass
 print('-'*50)
 print('Total Elements:', ix)
 print('-'*50)
