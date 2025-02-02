@@ -45,6 +45,7 @@ mpi_print('Importing Mesh...')
 mesh, cell, facet_tags = gmshio.read_from_msh('mesh/lgr_3d_test3.msh', comm, 0, gdim=3)
 mpi_print('Done.')
 
+
 #mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 #gdim = mesh.geometry.dim
 
@@ -74,18 +75,19 @@ def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, mi
 
 nev = 4
 
-interpolation_degree = 3
-percent_refinement = 2.
+interpolation_degree = 5
+percent_refinement = 10.
 #degree = 2
 #element_type = "N2curl"
 
 degree = 2
 interpolation_degree = int(np.max([degree, interpolation_degree]))
-element_type = "N2curl"
-#element_type = "N1curl"
+#element_type = "N2curl"
+element_type = "N1curl"
 
-max_passes = 6
+max_passes = 2
 min_passes = 2
+#max_delta_freq = 0.00005
 max_delta_freq = 0.0001
 freq_list = []
 mesh_cells_list = []
@@ -248,8 +250,8 @@ for run_ix in range(max_passes):
 
         new_mesh = refine(mesh, edges_to_split.astype(np.int32)) # new
         new_mesh = new_mesh[0]
-        num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
-        num_cells = new_mesh.topology.index_map(new_mesh.topology.dim).size_local
+        new_num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+#        num_cells = new_mesh.topology.index_map(new_mesh.topology.dim).size_local
 
 
         # Save solutions
@@ -266,7 +268,7 @@ for run_ix in range(max_passes):
         # Update mesh for eigenvector closest to target eigenvalue
         if i == 0:
             mpi_print('Setting new mesh')
-            mpi_print(num_cells)
+            mpi_print(new_num_cells)
             temp_mesh = new_mesh # set mesh equal to new mesh   
 
     mesh = temp_mesh
