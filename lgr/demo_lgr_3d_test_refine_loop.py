@@ -1,6 +1,7 @@
 #import modules
 from mpi4py import MPI
 import numpy as np
+import sys
 
 from petsc4py import PETSc
 real_type = PETSc.RealType
@@ -29,6 +30,7 @@ def mpi_print(s, rank = 0):
         print(f"Rank {comm.rank}: {s}")
     elif comm.rank == rank:
         print(f"Rank {comm.rank}: {s}")
+    sys.stdout.flush()
 
 def convert_eigenvalue_to_f(k_squared):
     return c * np.sqrt(k_squared) / (2 * np.pi)
@@ -75,13 +77,13 @@ def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, mi
 
 nev = 4
 
-interpolation_degree = 5
-percent_refinement = 10.
+#interpolation_degree = 2
+percent_refinement = 5.
 #degree = 2
 #element_type = "N2curl"
 
 degree = 2
-interpolation_degree = int(np.max([degree, interpolation_degree]))
+interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
 #element_type = "N2curl"
 element_type = "N1curl"
 
@@ -97,12 +99,17 @@ passes = 0
 for run_ix in range(max_passes):
     passes += 1
     mpi_print('RUN IX %i'%run_ix)
-    num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+#    num_cells = mesh.topology.index_map(mesh.topology.dim).size_local
+    num_cells = mesh.topology.index_map(mesh.topology.dim).size_global
+    mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
     mesh_cells_list.append(num_cells)
     mpi_print('Cells: %i'%num_cells)
-    mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
     gdim = mesh.geometry.dim
     V = fem.functionspace(mesh, (element_type, degree, (gdim,)))
+
+#    num_dofs = V.dofmap.bs
+    num_dofs = V.dofmap.index_map.size_global * V.dofmap.index_map_bs
+    mpi_print('dof: %i'%num_dofs)
 
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
@@ -255,7 +262,7 @@ for run_ix in range(max_passes):
 
 
         # Save solutions
-        mpi_print('Saving solution %i'%run_ix)
+        mpi_print('Saving solution %i, eigenvalue %i'%(run_ix, i))
         if i < nev:
 #            with io.VTXWriter(mesh.comm, "sols_lgr_%i/Et_%04i.bp"%(run_ix,i), Et_dg) as f:
             with io.VTXWriter(mesh.comm, "sols_lgr_Et_%04i/pass_%04i.bp"%(i,run_ix), Et_dg) as f:
