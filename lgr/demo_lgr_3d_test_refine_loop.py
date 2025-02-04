@@ -87,7 +87,7 @@ interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
 #element_type = "N2curl"
 element_type = "N1curl"
 
-max_passes = 2
+max_passes = 5
 min_passes = 2
 #max_delta_freq = 0.00005
 max_delta_freq = 0.0001
