@@ -23,8 +23,8 @@ from dolfinx.mesh import exterior_facet_indices, locate_entities
 
 msh = mesh.create_rectangle(
     comm=MPI.COMM_WORLD,
-    points=((0.0, 0.0), (2.0, 1.0)),
-    n=(32, 16),
+    points=((0.0, 0.0), (1.0, 1.0)),
+    n=(100, 100),
     cell_type=mesh.CellType.triangle,
 )
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
@@ -65,16 +65,28 @@ bc = fem.dirichletbc(u_bc, bc_dofs)
 
 # Next, the variational problem is defined:
 
+J_space = fem.functionspace(msh, ("DQ", 0))
+J = fem.Function(J_space)
+def J_location(x):
+    a = np.logical_and(x[0] < 0.55, x[0] > 0.45)
+    b = np.logical_and(x[1] < 0.55, x[1] > 0.45)
+    c = np.logical_and(a,b)
+    return c
+
+cells_J = locate_entities(msh, msh.topology.dim, J_location)
+print(cells_J)
+J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
+
 # +
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(msh)
-f = 10 * ufl.exp(-1*((x[0] - 0.5) ** 2 + (x[1] - 0.5) ** 2) / 0.02)
+#J = 10 * ufl.exp(-1*((x[0] - 0.5) ** 2 + (x[1] - 0.5) ** 2) / 0.02)
 #g = ufl.sin(5 * x[0])
 #a = inner(grad(u), grad(v)) * dx
 a = dot(grad(u), grad(v)) * dx
 #L = inner(f, v) * dx
-L = f * v * dx
+L = J * v * dx
 #L = dot(f, v) * dx
 
 
@@ -94,6 +106,8 @@ B.interpolate(B_expr)
 
 
 
+with io.VTXWriter(msh.comm, "sols/poisson_J.bp", J) as f:
+    f.write(0.0)
 
 with io.VTXWriter(msh.comm, "sols/poisson.bp", uh) as f:
     f.write(0.0)
