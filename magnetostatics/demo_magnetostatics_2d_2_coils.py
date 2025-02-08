@@ -16,16 +16,14 @@ from mpi4py import MPI
 import numpy as np
 
 import ufl
-from dolfinx import fem, io, mesh, plot, default_scalar_type
+from dolfinx import fem, io, mesh, plot
 from dolfinx.fem.petsc import LinearProblem
 from ufl import ds, dx, grad, inner, dot
-from dolfinx.mesh import exterior_facet_indices, locate_entities, locate_entities_boundary
-
-box_size = 1.0
+from dolfinx.mesh import exterior_facet_indices, locate_entities
 
 msh = mesh.create_rectangle(
     comm=MPI.COMM_WORLD,
-    points=((0.0, 0.0), (box_size, box_size)),
+    points=((-0.5, -0.5), (0.5, 0.5)),
     n=(100, 100),
     cell_type=mesh.CellType.triangle,
 )
@@ -33,8 +31,8 @@ msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
 gdim = msh.geometry.dim
 print(gdim)
 
-degree = 3
-V = fem.functionspace(msh, ("Lagrange", degree))
+#V = fem.functionspace(msh, ("Lagrange", 3, (3,)))
+V = fem.functionspace(msh, ("Lagrange", 3))
 
 
 #facets = mesh.locate_entities_boundary(
@@ -48,53 +46,50 @@ V = fem.functionspace(msh, ("Lagrange", degree))
 # boundary facets using {py:func}`locate_dofs_topological
 # <dolfinx.fem.locate_dofs_topological>`:
 
+#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
 
 # and use {py:func}`dirichletbc <dolfinx.fem.dirichletbc>` to create a
 # {py:class}`DirichletBC <dolfinx.fem.DirichletBC>` class that
 # represents the boundary condition:
 
-#facets = mesh.locate_entities_boundary(
-#    msh,
-#    dim=(msh.topology.dim - 1),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-#)
-
-#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
 #bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
+#bc = fem.dirichletbc(value=VectorType(0), dofs=dofs, V=V)
 
 
-#bc_facets = exterior_facet_indices(msh.topology)
-#bc_dofs = fem.locate_dofs_topological(V, msh.topology.dim - 1, bc_facets)
-#u_bc = fem.Function(V)
-#with u_bc.x.petsc_vec.localForm() as loc:
-#    loc.set(0)
-#bc = fem.dirichletbc(u_bc, bc_dofs)
-
-
+bc_facets = exterior_facet_indices(msh.topology)
+bc_dofs = fem.locate_dofs_topological(V, msh.topology.dim - 1, bc_facets)
+u_bc = fem.Function(V)
+with u_bc.x.petsc_vec.localForm() as loc:
+    loc.set(0)
+bc = fem.dirichletbc(u_bc, bc_dofs)
 
 # Next, the variational problem is defined:
 
 J_space = fem.functionspace(msh, ("DQ", 0))
 J = fem.Function(J_space)
-def J_location(x):
-#    a = np.logical_and(x[0] < 0.55, x[0] > 0.45)
-#    b = np.logical_and(x[1] < 0.55, x[1] > 0.45)
-    a = np.logical_and(x[0] < 0.55, x[0] > 0.45)
-    b = np.logical_and(x[1] < 0.25, x[1] > 0.15)
+
+coil_z = (-0.05, 0.05) #axial, x[0]
+coil_rho = (0.2, 0.3) #radial, x[1]
+
+
+def J_pos_location(x):
+    a = np.logical_and(x[0] >= coil_z[0], x[0] <= coil_z[1])
+    b = np.logical_and(x[1] >= coil_rho[0], x[1] <= coil_rho[1])
     c = np.logical_and(a,b)
     return c
 
-cells_J = locate_entities(msh, msh.topology.dim, J_location)
-print(cells_J)
-J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
+def J_neg_location(x):
+    a = np.logical_and(x[0] >= coil_z[0], x[0] <= coil_z[1])
+    b = np.logical_and(x[1] <= (-1*coil_rho[0]), x[1] >= (-1*coil_rho[1]))
+    c = np.logical_and(a,b)
+    return c
 
-
-### NEW ###
-facets = locate_entities_boundary(msh, gdim - 1, lambda x: np.full(x.shape[1], True))
-dofs = fem.locate_dofs_topological(V, gdim - 1, facets)
-bc = fem.dirichletbc(default_scalar_type(0), dofs, V)
-
+cells_J_pos = locate_entities(msh, msh.topology.dim, J_pos_location)
+cells_J_neg = locate_entities(msh, msh.topology.dim, J_neg_location)
+print(cells_J_pos)
+print(cells_J_neg)
+J.x.array[cells_J_pos] = np.full_like(cells_J_pos, 1.0, dtype=ScalarType)
+J.x.array[cells_J_neg] = np.full_like(cells_J_neg, 1.0, dtype=ScalarType)
 
 # +
 u = ufl.TrialFunction(V)
@@ -103,16 +98,11 @@ x = ufl.SpatialCoordinate(msh)
 #J = 10 * ufl.exp(-1*((x[0] - 0.5) ** 2 + (x[1] - 0.5) ** 2) / 0.02)
 #g = ufl.sin(5 * x[0])
 #a = inner(grad(u), grad(v)) * dx
+a = dot(grad(u), grad(v)) * x[1] * dx
 #L = inner(f, v) * dx
-#L = J * v * dx
+L = J * v * x[1] * dx
 #L = dot(f, v) * dx
-L =  (x[1]) * J * v * dx
 
-#a = dot(grad(u), grad(v)) * dx
-#a = (dot(grad(u), grad(v)) * x[1]) * dx
-a = (x[1]) * dot(grad(u), grad(v)) * dx
-
-#L = J * v * dx
 
 A_z = fem.Function(V)
 problem = LinearProblem(a, L, u=A_z, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
@@ -123,8 +113,7 @@ print(len(uh.x.array))
 ### Calculate Curl
 
 
-#W = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
-W = fem.functionspace(msh, ("CG", degree, (msh.geometry.dim, )))
+W = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
 B = fem.Function(W)
 B_expr = fem.Expression(ufl.as_vector((A_z.dx(1), -A_z.dx(0))), W.element.interpolation_points())
 B.interpolate(B_expr)
@@ -134,7 +123,7 @@ B.interpolate(B_expr)
 with io.VTXWriter(msh.comm, "sols/poisson_J.bp", J) as f:
     f.write(0.0)
 
-with io.VTXWriter(msh.comm, "sols/poisson_A.bp", uh) as f:
+with io.VTXWriter(msh.comm, "sols/poisson.bp", uh) as f:
     f.write(0.0)
 
 with io.VTXWriter(msh.comm, "sols/poisson_B.bp", B) as f:
