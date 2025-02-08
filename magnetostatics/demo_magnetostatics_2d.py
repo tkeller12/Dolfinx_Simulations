@@ -74,16 +74,32 @@ f = 10 * ufl.exp(-1*((x[0] - 0.5) ** 2 + (x[1] - 0.5) ** 2) / 0.02)
 #a = inner(grad(u), grad(v)) * dx
 a = dot(grad(u), grad(v)) * dx
 #L = inner(f, v) * dx
-L = dot(f, v) * dx
+L = f * v * dx
+#L = dot(f, v) * dx
 
 
-problem = LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+A_z = fem.Function(V)
+problem = LinearProblem(a, L, u=A_z, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
+
+print(len(uh.x.array))
+
+### Calculate Curl
+
+
+W = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
+B = fem.Function(W)
+B_expr = fem.Expression(ufl.as_vector((A_z.dx(1), -A_z.dx(0))), W.element.interpolation_points())
+B.interpolate(B_expr)
+
+
 
 
 with io.VTXWriter(msh.comm, "sols/poisson.bp", uh) as f:
     f.write(0.0)
 
+with io.VTXWriter(msh.comm, "sols/poisson_B.bp", B) as f:
+    f.write(0.0)
 
 print('Done.')
 
