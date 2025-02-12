@@ -33,7 +33,7 @@ box_size = 1.0
 #    cell_type=mesh.CellType.triangle,
 #)
 
-mesh, cell, facet_tags = gmshio.read_from_msh('iron_yoke_2d_001.msh', comm, 0, gdim=3)
+msh, cell_tags, facet_tags = gmshio.read_from_msh('iron_yoke_2d_001.msh', comm, 0, gdim=2)
 
 
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
@@ -43,6 +43,34 @@ print(gdim)
 
 degree = 2
 V = fem.functionspace(msh, ("Lagrange", degree))
+
+mu0 = 4. * np.pi * 1e-7
+
+MU_space = fem.functionspace(msh, ("DG", 0))
+mu_r_function = fem.Function(MU_space)
+mu_r_function.x.array[:] = 1.0
+
+vacuum_cell_tags = cell_tags.find(1)
+mu_r_function.x.array[vacuum_cell_tags] = np.full_like(vacuum_cell_tags, 1.0, dtype=ScalarType)
+
+copper_cell_tags = cell_tags.find(2)
+mu_r_function.x.array[copper_cell_tags] = np.full_like(copper_cell_tags, 1.0, dtype=ScalarType)
+
+iron_cell_tags = cell_tags.find(3)
+mu_r_function.x.array[iron_cell_tags] = np.full_like(iron_cell_tags, 1000, dtype=ScalarType)
+
+#mu_r_function.x.array[:] = np.full_like(range(len(mu_r_function.x.array[:])), 1.0, dtype=ScalarType)
+print(mu_r_function.x.array[:])
+#for each in mu_r_function.x.array[:]:
+#    if each > 1.0:
+#        print(each)
+
+#print(cell_tags.find(3))
+#mu_r_function.interpolate(mu_r, cells0=cell_tags.find(inner_tag))
+#mu_r_function.interpolate(lambda x: mu0, cells0=cell_tags.find(3)) # Iron
+#mu_r_function.interpolate(lambda x: (1000.*mu0), cells0=cell_tags.find(3)) # Iron
+#mu_r_function.x.scatter_forward()
+
 
 
 #facets = mesh.locate_entities_boundary(
@@ -89,7 +117,7 @@ def J_location(x):
 #    a = np.logical_and(x[0] > 0.45, x[0] < 0.55)
 
 #    a = np.logical_and(x[0] > 0.35, x[0] < 0.65)
-    a = np.logical_and(x[0] > 0.85, x[0] < 0.95)
+    a = np.logical_and(x[0] > 0.05, x[0] < 0.15)
 #    a2 = np.logical_and(x[0] > 0.55, x[0] < 0.65)
 #    a = np.logical_or(a,a2)
 
@@ -98,7 +126,9 @@ def J_location(x):
     return c
 
 cells_J = locate_entities(msh, msh.topology.dim, J_location)
-print(cells_J)
+cells_J = cell_tags.find(2) # 2 is copper
+
+#print(cells_J)
 J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
 
 
@@ -120,7 +150,7 @@ facets = mesh.locate_entities_boundary(
 #    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
 #    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
 #    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
+    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
 )
 
 dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
@@ -144,7 +174,7 @@ L =  J * v * dx
 
 #a = dot(grad(u), grad(v)) * dx
 #a = (dot(grad(u), grad(v)) * x[1]) * dx
-a = dot(grad(u), grad(v)) * (1./r) * dx
+a = (1.0 / mu_r_function) * dot(grad(u), grad(v)) * (1./r) * dx
 
 #L = J * v * dx
 
@@ -166,7 +196,7 @@ problem = LinearProblem(
 
 uh = problem.solve()
 
-print(len(uh.x.array))
+#print(len(uh.x.array))
 
 ### Calculate Curl
 

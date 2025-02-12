@@ -17,11 +17,11 @@ yoke_height = 1.0
 yoke_thickness = 0.2
 pole_radius = 0.1
 
-meshSize = 0.01
+meshSize = 0.005
 
 insulation_gap = 0.01
 
-DEFAULT_MESH_SIZE = 0.01
+DEFAULT_MESH_SIZE = 0.005
 
 def addRectangle(x, y, z, dx, dy, meshSize = DEFAULT_MESH_SIZE):
     p1 = factory.addPoint(x, y, z, meshSize)
@@ -94,7 +94,7 @@ print(tag_1)
 tags = [tag_0, tag_1]
 
 
-gmsh.model.addPhysicalGroup(2, tags, tag = 1, name = 'vacuum')
+#gmsh.model.addPhysicalGroup(2, tags, tag = 1, name = 'vacuum')
 
 #excitation = factory.addRectangle(0.0, 0.0, 0.0, box_size_x, box_size_y)
 
@@ -103,8 +103,14 @@ factory.synchronize()
 
 gmsh.model.mesh.generate(2)
 
+print(current)
+print(yoke)
+gmsh.model.addPhysicalGroup(2, tags, tag = 1, name = 'vacuum')
+gmsh.model.addPhysicalGroup(2, [current], tag = 2, name = 'copper')
+gmsh.model.addPhysicalGroup(2, [yoke], tag = 3, name = 'iron')
 
-gmsh.write("iron_yoke_2d_002.msh")
+
+gmsh.write("iron_yoke_2d_001.msh")
 
 # Run the GMSH GUI to visualize the mesh (comment out if you don't want to use the GUI)
 gmsh.fltk.run()
