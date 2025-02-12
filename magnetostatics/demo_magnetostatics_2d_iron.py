@@ -20,15 +20,22 @@ from dolfinx import fem, io, mesh, plot, default_scalar_type
 from dolfinx.fem.petsc import LinearProblem
 from ufl import ds, dx, grad, inner, dot
 from dolfinx.mesh import exterior_facet_indices, locate_entities, locate_entities_boundary
+from dolfinx.io import gmshio
+
+comm = MPI.COMM_WORLD
 
 box_size = 1.0
 
-msh = mesh.create_rectangle(
-    comm=MPI.COMM_WORLD,
-    points=((0.0, 0.0), (box_size, box_size)),
-    n=(500, 500),
-    cell_type=mesh.CellType.triangle,
-)
+#msh = mesh.create_rectangle(
+#    comm=MPI.COMM_WORLD,
+#    points=((0.0, 0.0), (box_size, box_size)),
+#    n=(500, 500),
+#    cell_type=mesh.CellType.triangle,
+#)
+
+mesh, cell, facet_tags = gmshio.read_from_msh('iron_yoke_2d_001.msh', comm, 0, gdim=3)
+
+
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
 gdim = msh.geometry.dim
 tdim = msh.topology.dim

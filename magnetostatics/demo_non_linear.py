@@ -245,6 +245,8 @@ B.interpolate(B_expr)
 with io.VTXWriter(mesh.comm, "sols/poisson_A_.bp", A_) as f:
     f.write(0.0)
 
+with io.VTXWriter(mesh.comm, "sols/poisson_B_.bp", B) as f:
+    f.write(0.0)
 
 
 ##plotter = pyvista.Plotter()
