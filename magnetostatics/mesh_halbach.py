@@ -8,6 +8,8 @@ gmsh.model.add("2D_Rectangle")
 
 factory = gmsh.model.occ
 
+filename = 'halbach_2d_001'
+
 DEFAULT_MESH_SIZE = 0.01
 FINE_MESH_SIZE = 0.005
 magnet_mesh_size = 0.005
@@ -81,9 +83,14 @@ for each in index:
     magnet_tags.append(rect)
 print(M_angle)
 print(magnet_tags)
-for ix, M_value in enumerate(M_angle):
-    print(magnet_tags[ix], M_value)
-    print(np.sin(M_value * np.pi / 180.), np.cos(M_value * np.pi / 180.))
+M_x = [0]
+M_y = [0]
+for ix, theta in enumerate(M_angle):
+    print(magnet_tags[ix], theta)
+#    print(np.sin(M_value * np.pi / 180.), np.cos(M_value * np.pi / 180.))
+    print(np.sin(theta * np.pi / 180.), np.cos(theta * np.pi / 180.))
+    M_x.append(np.sin(theta * np.pi / 180.))
+    M_y.append(np.cos(theta * np.pi / 180.))
 
 factory.addPoint(0,0,0)
 factory.synchronize()
@@ -91,8 +98,22 @@ factory.synchronize()
 
 gmsh.model.mesh.generate(2)
 
+gmsh.model.addPhysicalGroup(2, [boundary], boundary)
+permeability_list = [1]
+for ix, tag in enumerate(magnet_tags):
+    gmsh.model.addPhysicalGroup(2, [tag], tag)
+    permeability_list.append(1.05) # 1.05 for neodymium magnet
 
-gmsh.write("halbach_2d_001.msh")
+all_tags = [boundary] + magnet_tags
+
+### Create Array for saving ###
+# physical group, permeability, magnetization x, magnetization y
+save_array = np.vstack((all_tags, permeability_list, M_x, M_y)).T
+
+print(save_array)
+
+np.savetxt(filename + '.csv', save_array, delimiter = ',')
+gmsh.write(filename + '.msh')
 
 # Run the GMSH GUI to visualize the mesh (comment out if you don't want to use the GUI)
 gmsh.fltk.run()
