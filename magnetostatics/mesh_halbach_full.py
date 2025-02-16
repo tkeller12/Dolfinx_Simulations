@@ -10,17 +10,18 @@ factory = gmsh.model.occ
 
 filename = 'halbach_2d_001'
 
-DEFAULT_MESH_SIZE = 0.005
-FINE_MESH_SIZE = 0.005
+DEFAULT_MESH_SIZE = 0.1
+FINE_MESH_SIZE = 0.001
 magnet_mesh_size = 0.005
-box_size = 1.0
+box_size = 1.0 # 2x box size is full boundary edge
 r = 0.5
 magnet_size = 0.070
 
-total_magnets = 16
+#total_magnets = 32
+total_magnets = 8
 
-if (total_magnets % 4) !=0:
-    raise ValueError('total magnets must be divisible by 4')
+#if (total_magnets % 4) !=0:
+#    raise ValueError('total magnets must be divisible by 4')
 
 def addRectangle(x, y, z, dx, dy, theta = 0., theta_2 = 0., meshSize = DEFAULT_MESH_SIZE):
     if type(meshSize) is list:
@@ -58,9 +59,11 @@ def addRectangle(x, y, z, dx, dy, theta = 0., theta_2 = 0., meshSize = DEFAULT_M
 
 
 
-boundary = addRectangle(0,0,0,box_size, box_size, meshSize = [FINE_MESH_SIZE, DEFAULT_MESH_SIZE, DEFAULT_MESH_SIZE, DEFAULT_MESH_SIZE])
+boundary = addRectangle(-box_size,-box_size,0,2*box_size, 2*box_size, meshSize = [DEFAULT_MESH_SIZE, DEFAULT_MESH_SIZE, DEFAULT_MESH_SIZE, DEFAULT_MESH_SIZE])
 
-magnets = int((total_magnets / 4) + 1)
+#center_point = factory.addPoint(0,0,0, FINE_MESH_SIZE) # doesn't work
+
+magnets = total_magnets
 index = range(magnets)
 #print(index)
 #print(index[-1])
@@ -69,15 +72,10 @@ magnet_tags = []
 M_angle = []
 for each in index:
     print(each)
-    theta = each*(90/(magnets-1))
+    theta = each*(360/(magnets))
     M_angle.append(theta*2.0)
     print(theta)
-    if (each == 0):
-        rect = addRectangle(r-magnet_size/2, 0, 0, magnet_size, magnet_size/2., theta = theta, theta_2 = theta, meshSize = magnet_mesh_size)
-    elif each == index[-1]:
-        rect = addRectangle(r-magnet_size/2, 0, 0, magnet_size, -magnet_size/2., theta = theta, theta_2 = 0, meshSize = magnet_mesh_size)
-    else:
-        rect = addRectangle(r-magnet_size/2, -magnet_size/2, 0, magnet_size, magnet_size, theta = theta, theta_2 = theta, meshSize = magnet_mesh_size)
+    rect = addRectangle(r-magnet_size/2, -magnet_size/2, 0, magnet_size, magnet_size, theta = theta, theta_2 = theta, meshSize = magnet_mesh_size)
 
     factory.cut([(2,boundary)], [(2, rect)], removeTool = False)
     magnet_tags.append(rect)
@@ -90,9 +88,9 @@ for ix, theta in enumerate(M_angle):
 #    print(np.sin(M_value * np.pi / 180.), np.cos(M_value * np.pi / 180.))
     print(np.sin(theta * np.pi / 180.), np.cos(theta * np.pi / 180.))
     M_x.append(np.sin(theta * np.pi / 180.))
-    M_y.append(np.cos(theta * np.pi / 180.))
+    M_y.append(-1.0*np.cos(theta * np.pi / 180.))
 
-#factory.addPoint(0,0,0)
+#factory.addPoint(0,0,0, FINE_MESH_SIZE) # doesn't Work
 factory.synchronize()
 
 

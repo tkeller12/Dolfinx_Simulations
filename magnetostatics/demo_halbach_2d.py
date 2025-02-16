@@ -35,54 +35,83 @@ box_size = 1.0
 
 filename = 'halbach_2d_001'
 
-msh, cell, facet_tags = gmshio.read_from_msh(filename + '.msh', MPI.COMM_WORLD, 0, gdim=2)
+msh, cell_tags, facet_tags = gmshio.read_from_msh(filename + '.msh', MPI.COMM_WORLD, 0, gdim=2)
+
 
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
 gdim = msh.geometry.dim
 tdim = msh.topology.dim
 print(gdim)
 
+
 degree = 2
 V = fem.functionspace(msh, ("Lagrange", degree))
-
 
 # Next, the variational problem is defined:
 
 #J_space = fem.functionspace(msh, ("DQ", 0))
-J_space = fem.functionspace(msh, ("DG", 0))
+Mxy_space = fem.functionspace(msh, ("DG", 0))
 #J = fem.Function(V)
 #f.interpolate()
-J = fem.Function(J_space)
-print(J)
-def J_location(x):
-    a = np.logical_and(x[0] > 0.45, x[0] < 0.55)
-    b = np.logical_and(x[1] > 0.45, x[1] < 0.55)
-    c = np.logical_and(a,b)
-    return c
+marker_data = np.loadtxt(filename + '.csv', delimiter = ',')
 
-cells_J = locate_entities(msh, msh.topology.dim, J_location)
-print(cells_J)
+markers = marker_data[:,0]
+Mu_data = marker_data[:,1]
+Mx_data = marker_data[:,2]
+My_data = marker_data[:,3]
+
+Mx = fem.Function(Mxy_space)
+My = fem.Function(Mxy_space)
+
+for ix, marker in enumerate(markers):
+    tags = cell_tags.find(int(marker))
+    Mx_value = Mx_data[ix]
+    My_value = My_data[ix]
+    Mx.x.array[tags] = np.full_like(tags, Mx_value, dtype=ScalarType)
+    My.x.array[tags] = np.full_like(tags, My_value, dtype=ScalarType)
+
+
+#def J_location(x):
+#    a = np.logical_and(x[0] > 0.45, x[0] < 0.55)
+#    b = np.logical_and(x[1] > 0.45, x[1] < 0.55)
+#    c = np.logical_and(a,b)
+#    return c
+
+#cells_Mx = locate_entities(msh, msh.topology.dim, J_location)
+#print(cells_J)
 #cells_J2 = locate_entities(msh, msh.topology.dim, J_location2)
 #J_expr = fem.Expression(J_expression, V.element.interpolation_points())
 #J = fem.Function(V)
 #J.interpolate(J_expr)
 
 #J.x.array[:] = 1.0
-J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
+#Mx.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
 #J.x.array[cells_J2] = np.full_like(cells_J2, -1.0, dtype=ScalarType)
 #J.x.array[cells_J] = np.full_like(cells_J, 1000.0)#, dtype=ScalarType)
 
 ### Dirichlet Boundary conditions on chosen boundaries ###
-facets = mesh.locate_entities_boundary(
-    msh,
-    dim=(msh.topology.dim - 1),
-    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+#facets = mesh.locate_entities_boundary(
+#    msh,
+#    dim=(msh.topology.dim - 1),
+#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+#    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+
 #    marker=lambda x: np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
 #    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size),
-)
+#)
 
-dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
+#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
+#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facet_tags)
+#bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
+
+bc_facets = exterior_facet_indices(msh.topology)
+bc_dofs = fem.locate_dofs_topological(V, msh.topology.dim - 1, bc_facets)
+u_bc = fem.Function(V)
+with u_bc.x.petsc_vec.localForm() as loc:
+    loc.set(0)
+bc = fem.dirichletbc(u_bc, bc_dofs)
 
 
 # +
@@ -100,14 +129,19 @@ x = ufl.SpatialCoordinate(msh)
 #L =  J * v * dx
 M = fem.Function(V)
 #M.interpolate(J)
-M = ufl.as_vector((0.0, J))
+M = ufl.as_vector((Mx, My)) # why minus 1?
+#M = ufl.as_vector((0.0, My))
 #M = ufl.as_vector((J, 0.0))
 #M.interpolate(J)
-
+#J_eff = ufl.as_vector((M.dx(1), -1.0*M.dx(0)))
 #L =  M * v * dx
 #L =  M.dx(1) * v * dx
 #L = (x[0]*J) * v * dx
 L = dot(M, curl(v)) * dx
+#L = inner(J_eff, v) * dx
+
+#J_eff = curl(M)*dx
+#L = dot(J_eff, v) * dx
 
 #a = dot(grad(u), grad(v)) * dx
 #a = (dot(grad(u), grad(v)) * x[1]) * dx
@@ -141,6 +175,7 @@ print(len(uh.x.array))
 #W = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
 #W = fem.functionspace(msh, ("DG", degree, (msh.geometry.dim, )))
 W = fem.functionspace(msh, ("CG", degree, (msh.geometry.dim, )))
+M2 = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
 B = fem.Function(W)
 #B_expr = fem.Expression(ufl.as_vector((A_z.dx(1), -A_z.dx(0))), W.element.interpolation_points())
 B_expr = fem.Expression(ufl.as_vector((A_z.dx(1), -1.0*A_z.dx(0))), W.element.interpolation_points())
@@ -150,8 +185,11 @@ B.interpolate(B_expr)
 W2 = fem.functionspace(msh, ("CG", 2, (msh.geometry.dim, )))
 B2 = fem.Function(W2)
 
+M_save = fem.Function(M2)
+M_expr = fem.Expression(M, M2.element.interpolation_points())
+M_save.interpolate(M_expr)
 
-with io.VTXWriter(msh.comm, "sols/poisson_J.bp", J) as f:
+with io.VTXWriter(msh.comm, "sols/poisson_M.bp", M_save) as f:
     f.write(0.0)
 
 with io.VTXWriter(msh.comm, "sols/poisson_A.bp", uh) as f:
