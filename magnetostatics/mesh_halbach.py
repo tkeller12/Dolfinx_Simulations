@@ -10,9 +10,9 @@ factory = gmsh.model.occ
 
 filename = 'halbach_2d_001'
 
-DEFAULT_MESH_SIZE = 0.01
-FINE_MESH_SIZE = 0.005
-magnet_mesh_size = 0.005
+DEFAULT_MESH_SIZE = 0.05
+FINE_MESH_SIZE = 0.05
+magnet_mesh_size = 0.05
 box_size = 1.0
 r = 0.5
 magnet_size = 0.070
@@ -92,11 +92,11 @@ for ix, theta in enumerate(M_angle):
     M_x.append(np.sin(theta * np.pi / 180.))
     M_y.append(np.cos(theta * np.pi / 180.))
 
-factory.addPoint(0,0,0)
+#factory.addPoint(0,0,0)
 factory.synchronize()
 
 
-gmsh.model.mesh.generate(2)
+#gmsh.model.mesh.recombine()
 
 gmsh.model.addPhysicalGroup(2, [boundary], boundary)
 permeability_list = [1]
@@ -104,6 +104,9 @@ for ix, tag in enumerate(magnet_tags):
     gmsh.model.addPhysicalGroup(2, [tag], tag)
     permeability_list.append(1.05) # 1.05 for neodymium magnet
 
+factory.synchronize()
+gmsh.model.mesh.generate(2)
+gmsh.model.mesh.optimize()
 all_tags = [boundary] + magnet_tags
 
 ### Create Array for saving ###

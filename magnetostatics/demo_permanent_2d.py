@@ -20,23 +20,15 @@ from dolfinx import fem, io, mesh, plot, default_scalar_type
 from dolfinx.fem.petsc import LinearProblem
 from ufl import ds, dx, grad, inner, curl, dot
 from dolfinx.mesh import exterior_facet_indices, locate_entities, locate_entities_boundary
-from dolfinx.io import gmshio
-import gmsh
-
 
 box_size = 1.0
 
-#msh = mesh.create_rectangle(
-#    comm=MPI.COMM_WORLD,
-#    points=((0.0, 0.0), (box_size, box_size)),
-#    n=(200, 200),
-#    cell_type=mesh.CellType.triangle,
-#)
-
-filename = 'halbach_2d_001'
-
-msh, cell, facet_tags = gmshio.read_from_msh(filename + '.msh', MPI.COMM_WORLD, 0, gdim=2)
-
+msh = mesh.create_rectangle(
+    comm=MPI.COMM_WORLD,
+    points=((0.0, 0.0), (box_size, box_size)),
+    n=(200, 200),
+    cell_type=mesh.CellType.triangle,
+)
 msh.topology.create_connectivity(msh.topology.dim - 1, msh.topology.dim)
 gdim = msh.geometry.dim
 tdim = msh.topology.dim
