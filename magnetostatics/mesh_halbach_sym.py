@@ -10,14 +10,14 @@ factory = gmsh.model.occ
 
 filename = 'halbach_2d_001'
 
-DEFAULT_MESH_SIZE = 0.005
-FINE_MESH_SIZE = 0.005
-magnet_mesh_size = 0.005
+DEFAULT_MESH_SIZE = 0.1
+FINE_MESH_SIZE = 0.001
+magnet_mesh_size = 0.01
 box_size = 1.0
 r = 0.5
 magnet_size = 0.070
 
-total_magnets = 16
+total_magnets = 32
 
 if (total_magnets % 4) !=0:
     raise ValueError('total magnets must be divisible by 4')
@@ -90,7 +90,7 @@ for ix, theta in enumerate(M_angle):
 #    print(np.sin(M_value * np.pi / 180.), np.cos(M_value * np.pi / 180.))
     print(np.sin(theta * np.pi / 180.), np.cos(theta * np.pi / 180.))
     M_x.append(np.sin(theta * np.pi / 180.))
-    M_y.append(np.cos(theta * np.pi / 180.))
+    M_y.append(-1.0*np.cos(theta * np.pi / 180.))
 
 #factory.addPoint(0,0,0)
 factory.synchronize()
