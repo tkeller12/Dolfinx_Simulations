@@ -8,7 +8,7 @@ gmsh.model.add("2D_Rectangle")
 
 factory = gmsh.model.occ
 
-filename = 'halbach_2d_001'
+filename = 'halbach_2d_sym_001'
 
 DEFAULT_MESH_SIZE = 0.1
 FINE_MESH_SIZE = 0.001
@@ -117,6 +117,8 @@ print(save_array)
 
 np.savetxt(filename + '.csv', save_array, delimiter = ',')
 gmsh.write(filename + '.msh')
+gmsh.write(filename + '.stl')
+gmsh.write(filename + '.stp')
 
 # Run the GMSH GUI to visualize the mesh (comment out if you don't want to use the GUI)
 gmsh.fltk.run()

@@ -26,14 +26,7 @@ import gmsh
 
 box_size = 1.0
 
-#msh = mesh.create_rectangle(
-#    comm=MPI.COMM_WORLD,
-#    points=((0.0, 0.0), (box_size, box_size)),
-#    n=(200, 200),
-#    cell_type=mesh.CellType.triangle,
-#)
-
-filename = 'halbach_2d_001'
+filename = 'halbach_2d_sym_001'
 
 msh, cell_tags, facet_tags = gmshio.read_from_msh(filename + '.msh', MPI.COMM_WORLD, 0, gdim=2)
 
@@ -47,12 +40,7 @@ print(gdim)
 degree = 2
 V = fem.functionspace(msh, ("Lagrange", degree))
 
-# Next, the variational problem is defined:
-
-#J_space = fem.functionspace(msh, ("DQ", 0))
 Mxy_space = fem.functionspace(msh, ("DG", 0))
-#J = fem.Function(V)
-#f.interpolate()
 marker_data = np.loadtxt(filename + '.csv', delimiter = ',')
 
 markers = marker_data[:,0]
@@ -69,42 +57,6 @@ for ix, marker in enumerate(markers):
     My_value = My_data[ix]
     Mx.x.array[tags] = np.full_like(tags, Mx_value, dtype=ScalarType)
     My.x.array[tags] = np.full_like(tags, My_value, dtype=ScalarType)
-
-
-#def J_location(x):
-#    a = np.logical_and(x[0] > 0.45, x[0] < 0.55)
-#    b = np.logical_and(x[1] > 0.45, x[1] < 0.55)
-#    c = np.logical_and(a,b)
-#    return c
-
-#cells_Mx = locate_entities(msh, msh.topology.dim, J_location)
-#print(cells_J)
-#cells_J2 = locate_entities(msh, msh.topology.dim, J_location2)
-#J_expr = fem.Expression(J_expression, V.element.interpolation_points())
-#J = fem.Function(V)
-#J.interpolate(J_expr)
-
-#J.x.array[:] = 1.0
-#Mx.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
-#J.x.array[cells_J2] = np.full_like(cells_J2, -1.0, dtype=ScalarType)
-#J.x.array[cells_J] = np.full_like(cells_J, 1000.0)#, dtype=ScalarType)
-
-### Dirichlet Boundary conditions on chosen boundaries ###
-#facets = mesh.locate_entities_boundary(
-#    msh,
-#    dim=(msh.topology.dim - 1),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-##    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-#
-##    marker=lambda x: np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size),
-#)
-
-#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facet_tags)
-#bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
 
 natural_bc_facets = mesh.locate_entities_boundary(
     msh,
@@ -200,13 +152,13 @@ M_save = fem.Function(M2)
 M_expr = fem.Expression(M, M2.element.interpolation_points())
 M_save.interpolate(M_expr)
 
-with io.VTXWriter(msh.comm, "sols/poisson_M.bp", M_save) as f:
+with io.VTXWriter(msh.comm, "sols/%s_M.bp"%filename, M_save) as f:
     f.write(0.0)
 
-with io.VTXWriter(msh.comm, "sols/poisson_A.bp", uh) as f:
+with io.VTXWriter(msh.comm, "sols/%s_A.bp"%filename, uh) as f:
     f.write(0.0)
 
-with io.VTXWriter(msh.comm, "sols/poisson_B.bp", B) as f:
+with io.VTXWriter(msh.comm, "sols/%s_B.bp"%filename, B) as f:
     f.write(0.0)
 
 print('Done.')
