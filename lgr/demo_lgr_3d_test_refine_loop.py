@@ -87,7 +87,7 @@ interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
 #element_type = "N2curl"
 element_type = "N1curl"
 
-max_passes = 5
+max_passes = 4
 min_passes = 2
 #max_delta_freq = 0.00005
 max_delta_freq = 0.0001
@@ -219,16 +219,19 @@ for run_ix in range(max_passes):
         V_dg = fem.functionspace(mesh, ("CG", interpolation_degree, (gdim,)))
         Et_dg = fem.Function(V_dg)
         Et_dg.interpolate(eth)
+        Et_dg.x.scatter_forward()
 
         B = fem.Function(V_dg)
         B_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
         B.interpolate(B_expr)
+        B.x.scatter_forward()
 
         V_G = fem.functionspace(mesh, ("DG", 0, (1,)))
         G = fem.Function(V_G)
         G_form = ufl.inner(ufl.grad(eth),ufl.grad(eth))
         G_expr = fem.Expression(G_form, V_G.element.interpolation_points())
         G.interpolate(G_expr)
+        G.x.scatter_forward()
 
 
         # Find cells to refine
@@ -262,14 +265,17 @@ for run_ix in range(max_passes):
 
 
         # Save solutions
-        mpi_print('Saving solution %i, eigenvalue %i'%(run_ix, i))
         if i < nev:
+            mpi_print('Saving solution %i, eigenvalue %i'%(run_ix, i))
 #            with io.VTXWriter(mesh.comm, "sols_lgr_%i/Et_%04i.bp"%(run_ix,i), Et_dg) as f:
             with io.VTXWriter(mesh.comm, "sols_lgr_Et_%04i/pass_%04i.bp"%(i,run_ix), Et_dg) as f:
                 f.write(0.0)
 
 #            with io.VTXWriter(mesh.comm, "sols_lgr_%i/B_%04i.bp"%(run_ix,i), B) as f:
             with io.VTXWriter(mesh.comm, "sols_lgr_B_%04i/pass_%04i.bp"%(i,run_ix), B) as f:
+                f.write(0.0)
+
+            with io.VTXWriter(mesh.comm, "sols_lgr_G_%04i/pass_%04i.bp"%(i,run_ix), G) as f:
                 f.write(0.0)
 
         # Update mesh for eigenvector closest to target eigenvalue

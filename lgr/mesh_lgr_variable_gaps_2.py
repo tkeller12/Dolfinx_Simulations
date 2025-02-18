@@ -21,9 +21,9 @@ void_height = 5e-3
 z = -height/2
 num_gaps = 2
 
-sample_loop_sides = 20
-return_loop_sides = 16
-void_sides = 16
+sample_loop_sides = 16
+return_loop_sides = 12
+void_sides = 12
 
 def addPolygon(x, y, z, radius=1.0, N = 20):
     """
