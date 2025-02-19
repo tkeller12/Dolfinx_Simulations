@@ -13,7 +13,7 @@ from dolfinx import fem, io, plot
 from dolfinx.fem.petsc import assemble_matrix
 from dolfinx.io import gmshio
 
-from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities, refine, compute_midpoints, compute_incident_entities
+from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities, refine, compute_midpoints, compute_incident_entities, create_submesh
 
 
 from slepc4py import SLEPc
@@ -87,7 +87,7 @@ interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
 #element_type = "N2curl"
 element_type = "N1curl"
 
-max_passes = 4
+max_passes = 5
 min_passes = 2
 #max_delta_freq = 0.00005
 max_delta_freq = 0.0001
@@ -233,10 +233,18 @@ for run_ix in range(max_passes):
         G.interpolate(G_expr)
         G.x.scatter_forward()
 
+        G_refined_locations = fem.Function(V_G) ### allocate for where mesh will be refined
 
         # Find cells to refine
         threshold = np.percentile(G.x.array, 100-percent_refinement)
         cell_index = np.arange(len(G.x.array))[G.x.array > threshold]
+
+        G_refined_locations.x.array[:] = 0
+        G_refined_locations.x.array[cell_index] = np.full_like(cell_index, 1.0, dtype=scalar_type)
+
+        ###### TEST NEW SUBMESH
+#        submesh = create_submesh(mesh, 3, cell_index)
+        ###### END TEST NEW SUBMESH
 
         mesh.topology.create_connectivity(3, 1)
         mesh.topology.create_connectivity(1, 3)
@@ -277,6 +285,12 @@ for run_ix in range(max_passes):
 
             with io.VTXWriter(mesh.comm, "sols_lgr_G_%04i/pass_%04i.bp"%(i,run_ix), G) as f:
                 f.write(0.0)
+
+            with io.VTXWriter(mesh.comm, "sols_lgr_G_refined_locations_%04i/pass_%04i.bp"%(i,run_ix), G_refined_locations) as f:
+                f.write(0.0)
+
+#            with io.VTXWriter(mesh.comm, "sols_lgr_G2_%04i/pass_%04i.bp"%(i,run_ix), G2) as f:
+#                f.write(0.0)
 
         # Update mesh for eigenvector closest to target eigenvalue
         if i == 0:
