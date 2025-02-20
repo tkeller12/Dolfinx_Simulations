@@ -44,10 +44,11 @@ tdim = msh.topology.dim
 print(gdim)
 
 degree = 2
-V = fem.functionspace(msh, ("Lagrange", degree))
+#V = fem.functionspace(msh, ("Lagrange", degree))
 #el = element("Lagrange", msh.topology.cell_name(), 1, shape=(2,))
-el = element("Lagrange", msh.topology.cell_name(), 1, shape=(3,))
-V2 = fem.functionspace(msh, el)
+el = element("Lagrange", msh.topology.cell_name(), 2, shape=(3,))
+#el = element("N2curl", msh.topology.cell_name(), 2, shape=(3,))
+V = fem.functionspace(msh, el)
 
 mu0 = 4. * np.pi * 1e-7
 
@@ -68,85 +69,13 @@ def J_coil(x):
 #    return (0*x[0],-x[2]/np.sqrt(x[1]**2 + x[2]**2), )
 
 
-J = fem.Function(V2)
+#J = fem.Function(V2)
+J = fem.Function(V)
 #J = fem.Function(MU_space, dtype = np.float64)
 J.interpolate(J_coil, cells0 = coil_cell_tags)
-print('Saving J')
-with io.VTXWriter(msh.comm, "sols/coil_3d_J.bp", J) as f:
-    f.write(0.0)
+J.x.scatter_forward()
 
 
-#mu_r_function.x.array[:] = np.full_like(range(len(mu_r_function.x.array[:])), 1.0, dtype=ScalarType)
-print(mu_r_function.x.array[:])
-#for each in mu_r_function.x.array[:]:
-#    if each > 1.0:
-#        print(each)
-
-#print(cell_tags.find(3))
-#mu_r_function.interpolate(mu_r, cells0=cell_tags.find(inner_tag))
-#mu_r_function.interpolate(lambda x: mu0, cells0=cell_tags.find(3)) # Iron
-#mu_r_function.interpolate(lambda x: (1000.*mu0), cells0=cell_tags.find(3)) # Iron
-#mu_r_function.x.scatter_forward()
-
-
-
-#facets = mesh.locate_entities_boundary(
-#    msh,
-#    dim=(msh.topology.dim - 1),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], 2.0),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], 2.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], 1.0),
-#)
-
-# We now find the degrees-of-freedom that are associated with the
-# boundary facets using {py:func}`locate_dofs_topological
-# <dolfinx.fem.locate_dofs_topological>`:
-
-
-# and use {py:func}`dirichletbc <dolfinx.fem.dirichletbc>` to create a
-# {py:class}`DirichletBC <dolfinx.fem.DirichletBC>` class that
-# represents the boundary condition:
-
-#facets = mesh.locate_entities_boundary(
-#    msh,
-#    dim=(msh.topology.dim - 1),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-#)
-
-#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-#bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
-
-
-#bc_facets = exterior_facet_indices(msh.topology)
-#bc_dofs = fem.locate_dofs_topological(V, msh.topology.dim - 1, bc_facets)
-#u_bc = fem.Function(V)
-#with u_bc.x.petsc_vec.localForm() as loc:
-#    loc.set(0)
-#bc = fem.dirichletbc(u_bc, bc_dofs)
-
-
-
-# Next, the variational problem is defined:
-
-J_space = fem.functionspace(msh, ("DQ", 0))
-J = fem.Function(J_space)
-def J_location(x):
-#    a = np.logical_and(x[0] > 0.45, x[0] < 0.55)
-
-#    a = np.logical_and(x[0] > 0.35, x[0] < 0.65)
-    a = np.logical_and(x[0] > 0.05, x[0] < 0.15)
-#    a2 = np.logical_and(x[0] > 0.55, x[0] < 0.65)
-#    a = np.logical_or(a,a2)
-
-    b = np.logical_and(x[1] > 0.15, x[1] < 0.25)
-    c = np.logical_and(a,b)
-    return c
-
-cells_J = locate_entities(msh, msh.topology.dim, J_location)
-cells_J = cell_tags.find(2) # 2 is copper
-
-#print(cells_J)
-J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
 
 
 ### Dirichlet Boundary conditions on all boundaries ###
@@ -154,24 +83,31 @@ J.x.array[cells_J] = np.full_like(cells_J, 1.0, dtype=ScalarType)
 #dofs = fem.locate_dofs_topological(V, gdim - 1, facets)
 #bc = fem.dirichletbc(default_scalar_type(0), dofs, V)
 
+bc_facets = exterior_facet_indices(msh.topology)
+bc_dofs = fem.locate_dofs_topological(V, msh.topology.dim - 1, bc_facets)
+u_bc = fem.Function(V)
+with u_bc.x.petsc_vec.localForm() as loc:
+    loc.set(0)
+bc = fem.dirichletbc(u_bc, bc_dofs)
+
 # Update the weak form to include the magnet
 #x = ufl.SpatialCoordinate(msh)
 #facets = locate_entities_boundary(msh, tdim - 1, lambda x: np.full(x.shape[1], True))
 #dofs = fem.locate_dofs_topological(V, tdim - 1, facets)
 #bc = fem.dirichletbc(default_scalar_type(0), dofs, V)
 
-### Dirichlet Boundary conditions on chosen boundaries ###
-facets = mesh.locate_entities_boundary(
-    msh,
-    dim=(msh.topology.dim - 1),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-)
+#### Dirichlet Boundary conditions on chosen boundaries ###
+#facets = mesh.locate_entities_boundary(
+#    msh,
+#    dim=(msh.topology.dim - 1),
+##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
+##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
+##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
+#    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
+#)
 
-dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
+#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
+#bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
 
 
 # +
@@ -185,13 +121,17 @@ x = ufl.SpatialCoordinate(msh)
 #L = J * v * dx
 #L = dot(f, v) * dx
 
-r = x[1]
+#r = x[1]
 #L =  J * v * (1./ r) * dx
-L =  J * v * dx
+#L =  J * v * dx
+#L =  inner(J,v) * dx
+#L =  dot(J,v) * dx
+L =  inner(J,v) * dx
 
 #a = dot(grad(u), grad(v)) * dx
 #a = (dot(grad(u), grad(v)) * x[1]) * dx
-a = (1.0 / mu_r_function) * dot(grad(u), grad(v)) * (1./r) * dx
+#a = (1.0 / mu_r_function) * inner(grad(u), grad(v)) * (1./r) * dx
+a = (1.0 / mu_r_function) * inner(grad(u), grad(v)) * dx
 
 #L = J * v * dx
 
@@ -211,33 +151,42 @@ problem = LinearProblem(
     },
 )
 
+print('Solving...')
 uh = problem.solve()
+print('Done.')
 
 #print(len(uh.x.array))
 
 ### Calculate Curl
 
 
-W = fem.functionspace(msh, ("DG", 0, (msh.geometry.dim, )))
+W = fem.functionspace(msh, ("CG", 2, (msh.geometry.dim, )))
 #W = fem.functionspace(msh, ("DG", degree, (msh.geometry.dim, )))
 #W = fem.functionspace(msh, ("CG", degree, (msh.geometry.dim, )))
 B = fem.Function(W)
 #B_expr = fem.Expression(ufl.as_vector((A_z.dx(1), -A_z.dx(0))), W.element.interpolation_points())
-B_expr = fem.Expression(ufl.as_vector(((1.0/r)*A_z.dx(1), (-1.0/r)*A_z.dx(0))), W.element.interpolation_points())
+#B_expr = fem.Expression(ufl.as_vector(((1.0/r)*A_z.dx(1), (-1.0/r)*A_z.dx(0))), W.element.interpolation_points())
 #B_expr = fem.Expression(ufl.as_vector(((x[1]*A_z).dx(1), -1*(x[1]*A_z).dx(0))), W.element.interpolation_points())
+#B.interpolate(B_expr)
+
+V_dg = fem.functionspace(msh, ("CG", 2, (gdim,)))
+B = fem.Function(V_dg)
+B_expr = fem.Expression(ufl.curl(A_z), V_dg.element.interpolation_points())
 B.interpolate(B_expr)
-
-W2 = fem.functionspace(msh, ("CG", 2, (msh.geometry.dim, )))
-B2 = fem.Function(W2)
+B.x.scatter_forward()
 
 
-with io.VTXWriter(msh.comm, "sols/poisson_J.bp", J) as f:
-    f.write(0.0)
+#W2 = fem.functionspace(msh, ("CG", 2, (msh.geometry.dim, )))
+#B2 = fem.Function(W2)
 
-with io.VTXWriter(msh.comm, "sols/poisson_A.bp", uh) as f:
-    f.write(0.0)
 
-with io.VTXWriter(msh.comm, "sols/poisson_B.bp", B) as f:
+#with io.VTXWriter(msh.comm, "sols/poisson_J.bp", J) as f:
+#    f.write(0.0)
+
+#with io.VTXWriter(msh.comm, "sols/poisson_A.bp", uh) as f:
+#    f.write(0.0)
+
+with io.VTXWriter(msh.comm, "sols/coil_3d_B.bp", B) as f:
     f.write(0.0)
 
 print('Done.')
