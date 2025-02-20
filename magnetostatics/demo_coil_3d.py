@@ -47,8 +47,9 @@ degree = 2
 #V = fem.functionspace(msh, ("Lagrange", degree))
 #el = element("Lagrange", msh.topology.cell_name(), 1, shape=(2,))
 el = element("Lagrange", msh.topology.cell_name(), 2, shape=(3,))
-#el = element("N2curl", msh.topology.cell_name(), 2, shape=(3,))
+#el = element("N1curl", msh.topology.cell_name(), 2, shape=(3,))
 V = fem.functionspace(msh, el)
+#V = fem.functionspace(msh, ("N2curl", degree))
 
 mu0 = 4. * np.pi * 1e-7
 
@@ -57,21 +58,20 @@ mu_r_function = fem.Function(MU_space)
 mu_r_function.x.array[:] = 1.0
 
 coil_cell_tags = cell_tags.find(2)
+yoke_cell_tags = cell_tags.find(3)
+print(yoke_cell_tags)
+mu_r_function.x.array[yoke_cell_tags] = np.full_like(yoke_cell_tags, 10000.0, dtype=ScalarType)
+
 
 def J_coil(x):
-#    vals = np.zeros((msh.geometry.dim, x.shape[1]))
-
     x0 = 0 # x
     x1 = -x[2]/np.sqrt(x[1]**2 + x[2]**2)
     x2 = x[1]/np.sqrt(x[1]**2 + x[2]**2)
 
     return np.array((0*x[0],x1,x2))
-#    return (0*x[0],-x[2]/np.sqrt(x[1]**2 + x[2]**2), )
 
 
-#J = fem.Function(V2)
 J = fem.Function(V)
-#J = fem.Function(MU_space, dtype = np.float64)
 J.interpolate(J_coil, cells0 = coil_cell_tags)
 J.x.scatter_forward()
 
@@ -96,18 +96,6 @@ bc = fem.dirichletbc(u_bc, bc_dofs)
 #dofs = fem.locate_dofs_topological(V, tdim - 1, facets)
 #bc = fem.dirichletbc(default_scalar_type(0), dofs, V)
 
-#### Dirichlet Boundary conditions on chosen boundaries ###
-#facets = mesh.locate_entities_boundary(
-#    msh,
-#    dim=(msh.topology.dim - 1),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], box_size),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-##    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-#    marker=lambda x: np.isclose(x[0], box_size) | np.isclose(x[1], 0.0) | np.isclose(x[1], box_size),
-#)
-
-#dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=facets)
-#bc = fem.dirichletbc(value=ScalarType(0), dofs=dofs, V=V)
 
 
 # +
@@ -189,6 +177,8 @@ B.x.scatter_forward()
 with io.VTXWriter(msh.comm, "sols/coil_3d_B.bp", B) as f:
     f.write(0.0)
 
+with io.VTXWriter(msh.comm, "sols/coil_3d_MU.bp", mu_r_function) as f:
+    f.write(0.0)
 print('Done.')
 
 #with io.XDMFFile(msh.comm, "out_poisson/poisson.xdmf", "w") as file:

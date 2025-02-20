@@ -13,6 +13,7 @@ box_size = 2.0
 boundary = factory.addBox(-box_size/2, -box_size/2, -box_size/2, box_size,box_size,box_size)
 
 coil_rect = factory.addRectangle(-0.1, 0.3, 0, 0.2, 0.2)
+yoke_rect = factory.addRectangle(-0.1, 0.0, 0, 0.2, 0.29)
 
 revolve_tags = factory.revolve([(2, coil_rect)], 0,0,0, 1, 0, 0, 2*np.pi)
 for each in revolve_tags:
@@ -20,11 +21,18 @@ for each in revolve_tags:
         coil = each[1]
 print(coil)
 
+revolve_yoke_tags = factory.revolve([(2, yoke_rect)], 0,0,0, 1, 0, 0, 2*np.pi)
+for each in revolve_yoke_tags:
+    if each[0] == 3:
+        yoke = each[1]
+
 out = factory.cut([(3,boundary)], [(3, coil)], removeTool = False)
+out = factory.cut([(3,boundary)], [(3, yoke)], removeTool = False)
 
 factory.synchronize()
 gmsh.model.addPhysicalGroup(3, [boundary], 1)
 gmsh.model.addPhysicalGroup(3, [coil], 2)
+gmsh.model.addPhysicalGroup(3, [yoke], 3)
 
 
 factory.synchronize()
