@@ -85,9 +85,9 @@ percent_refinement = 5.
 degree = 2
 interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
 #element_type = "N2curl"
-element_type = "N1curl"
+element_type = "N2curl"
 
-max_passes = 5
+max_passes = 8
 min_passes = 2
 #max_delta_freq = 0.00005
 max_delta_freq = 0.0001
@@ -172,7 +172,7 @@ for run_ix in range(max_passes):
 
     pc = ksp.getPC()
     pc.setType('lu')
-    pc.setFactorSolverType('superlu_dist')
+    pc.setFactorSolverType('superlu_dist') # takes up additional memory
 
     mpi_print('Solving...')
     eps.solve()

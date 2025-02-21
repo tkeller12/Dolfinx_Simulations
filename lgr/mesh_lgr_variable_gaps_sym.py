@@ -21,9 +21,9 @@ void_height = 5e-3
 z = -height/2
 num_gaps = 2
 
-sample_loop_sides = 16
-return_loop_sides = 12
-void_sides = 12
+sample_loop_sides = 32
+return_loop_sides = 24
+void_sides = 24
 
 def addPolygon(x, y, z, radius=1.0, N = 20):
     """
@@ -197,10 +197,11 @@ factory.synchronize()
 gmsh.model.addPhysicalGroup(3, [1], name = 'Resonator')#, 1) # need to add physcial groups
 
 
-gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
-#gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
+#gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good option
+gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
-gmsh.model.mesh.refine()
+#gmsh.model.mesh.refine()
+#gmsh.model.mesh.optimize()
 
 element_types, element_tags, element_node_tags = gmsh.model.mesh.getElements(3)
 
