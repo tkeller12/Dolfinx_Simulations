@@ -241,11 +241,11 @@ for run_ix in range(max_passes):
         G.x.scatter_forward()
 
         # Calculate Residual
-        Res_CG = fem.functionspace(mesh, ("DG", 0, (1,)))
-        residual = fem.Function(Res_CG)
-        f_res = (eigen_value * eth) - ufl.curl(ufl.curl(eth))
+        residual = fem.Function(V_G)
+#        f_res = (eigen_value * eth) - ufl.curl(ufl.curl(eth))
+        f_res = ufl.CellVolume(eth) * ((eigen_value * eth) + ufl.curl(ufl.curl(eth)))
         f_mag = ufl.inner(f_res,f_res)
-        residual_expr = fem.Expression(f_mag, Res_CG.element.interpolation_points())
+        residual_expr = fem.Expression(f_mag, V_G.element.interpolation_points())
         residual.interpolate(residual_expr)
         residual.x.scatter_forward()
 
