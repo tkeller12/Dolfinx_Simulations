@@ -77,20 +77,21 @@ def check_convergence(criteria, current_pass, delta = 0.0002, max_passes = 1, mi
 
 nev = 1
 
-#interpolation_degree = 2
-percent_refinement = 5
+interpolation_degree = 2
+percent_refinement = 30
 #degree = 2
 #element_type = "N2curl"
 
 degree = 2
-interpolation_degree = degree#int(np.max([degree, interpolation_degree]))
+interpolation_degree = degree
+#interpolation_degree = int(np.max([degree, interpolation_degree])) # looks worse
 #element_type = "N2curl"
-element_type = "N2curl"
+element_type = "N1curl"
 
 max_passes = 10
 min_passes = 2
 #max_delta_freq = 0.00005
-max_delta_freq = 0.0001
+max_delta_freq = 0.001
 freq_list = []
 mesh_cells_list = []
 
@@ -224,6 +225,7 @@ for run_ix in range(max_passes):
         gdim = mesh.geometry.dim
 #        V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
         V_dg = fem.functionspace(mesh, ("CG", interpolation_degree, (gdim,)))
+#        V_dg = fem.functionspace(mesh, ("DG", interpolation_degree, (gdim,)))
         Et_dg = fem.Function(V_dg)
         Et_dg.interpolate(eth)
         Et_dg.x.scatter_forward()
