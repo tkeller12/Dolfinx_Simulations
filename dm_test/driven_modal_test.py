@@ -17,7 +17,7 @@ import dolfinx.mesh
 from slepc4py import SLEPc
 
 #waveguide parameters
-a = 1.7
+a = 1.5
 b = 0.9
 c = 0.4
 
@@ -27,12 +27,14 @@ nz = 20
 
 print('Creating Mesh...')
 mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
+#mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.tetrahedron)
 print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
 degree = 2
-V = fem.functionspace(mesh, ('N1curl', degree))
+V = fem.functionspace(mesh, ('N2curl', degree))
+#V = fem.functionspace(mesh, ('CG', degree))
 
 print('facet dim calc',(mesh.topology.dim - 1))
 # Identify PEC boundary, x[0] = 0 is waveguide port
@@ -51,7 +53,7 @@ with u_bc.x.petsc_vec.localForm() as loc:
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
 
-lmbd0 = 0.5
+lmbd0 = 1.5*0.5
 k0 = 2 * np.pi / lmbd0
 
 u = ufl.TrialFunction(V)
@@ -59,9 +61,7 @@ v = ufl.TestFunction(V)
 
 
 def is_port(x):
-#    return np.isclose(x[0], 0.0)
     return np.isclose(x[0], 0.0)
-#    return np.isclose(x[0], a)
 tdim = mesh.topology.dim
 print('tdim',tdim)
 port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
@@ -73,7 +73,7 @@ ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
-Y = 20.0
+Y = 50.0
 
 #n = ufl.as_vector([0, 0, 1])
 
@@ -95,6 +95,7 @@ L = ufl.rhs(weak_form)
 
 print('Solving...')
 problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+#problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu", "pc_factor_mat_solver_type": 'mumps'})
 E = problem.solve()
 print('Done.')
 
