@@ -17,31 +17,33 @@ import dolfinx.mesh
 from slepc4py import SLEPc
 
 #waveguide parameters
-a = 5.0
+a = 1.7
 b = 0.9
 c = 0.4
 
-nx = 8
-ny = 8
-nz = 12
+nx = 50
+ny = 20
+nz = 20
 
 print('Creating Mesh...')
-mesh = create_box(MPI.COMM_WORLD, np.array([[0,0,0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
+mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
 print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
-mesh.topology.create_connectivity(mesh.topology.dim-2,mesh.topology.dim)
 
-degree = 1
+degree = 2
 V = fem.functionspace(mesh, ('N1curl', degree))
 
+print('facet dim calc',(mesh.topology.dim - 1))
 # Identify PEC boundary, x[0] = 0 is waveguide port
 pec_facets = dolfinx.mesh.locate_entities_boundary(
     mesh,
     dim=(mesh.topology.dim - 1),
     marker=lambda x: np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c))
+#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c))
 
-pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=pec_facets)
+print('pec facets:', pec_facets)
+pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=mesh.topology.dim-1, entities=pec_facets)
 
 u_bc = fem.Function(V)
 with u_bc.x.petsc_vec.localForm() as loc:
@@ -49,33 +51,39 @@ with u_bc.x.petsc_vec.localForm() as loc:
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
 
-lmbd0 = 0.1
+lmbd0 = 0.5
 k0 = 2 * np.pi / lmbd0
 
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
-x = ufl.SpatialCoordinate(mesh)
 
 
 def is_port(x):
+#    return np.isclose(x[0], 0.0)
     return np.isclose(x[0], 0.0)
+#    return np.isclose(x[0], a)
 tdim = mesh.topology.dim
-port_facets = dolfinx.mesh.locate_entities_boundary(mesh, tdim - 1, is_port)
+print('tdim',tdim)
+port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
+print('port facets',port_facets)
 port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
+print('port markers', port_marker)
 ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 
+x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
-Y = 1000.0
+Y = 20.0
 
-n = ufl.as_vector([0, 0, -1])
+#n = ufl.as_vector([0, 0, 1])
 
-L_port = Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
+L_port = -0.5 * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
 
-L_inc = Y * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds
+#L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
+L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
 
-#L = L_port + L_inc
 weak_form = a + L_port + L_inc
+#weak_form = a + L_inc
 
 a = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
@@ -85,33 +93,21 @@ L = ufl.rhs(weak_form)
 
 
 
-print('Applying Boundary Conditions...')
-#bc_facets = exterior_facet_indices(mesh.topology)
-#bc_dofs = fem.locate_dofs_topological(V, mesh.topology.dim - 1, bc_facets)
-#u_bc = fem.Function(V)
-#with u_bc.x.petsc_vec.localForm() as loc:
-#    loc.set(0)
-#bc = fem.dirichletbc(u_bc, bc_dofs)
-
-
-
-print('Done.')
-
-problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+print('Solving...')
+problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 E = problem.solve()
-
-
-print('Assembling Matrix...')
-#A = assemble_matrix(a, bcs=[bc])
-#A.assemble()
-#B = assemble_matrix(b, bcs=[bc])
-#B.assemble()
 print('Done.')
 
 gdim = mesh.geometry.dim
 V_dg = fem.functionspace(mesh, ("DG", degree, (gdim,)))
 E_dg = fem.Function(V_dg)
 E_dg.interpolate(E)
+E_dg.x.scatter_forward()
+
+#Port_E_inc_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
+
+
+#V_tag = fem.functionspace(mesh, ("DG", 0, (gdim,)))
 
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
