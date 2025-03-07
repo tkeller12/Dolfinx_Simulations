@@ -7,6 +7,7 @@ real_type = PETSc.RealType
 scalar_type = PETSc.ScalarType
 
 import ufl
+from basix.ufl import element
 from basix.ufl import element, mixed_element
 from dolfinx import fem, io, plot
 from dolfinx.fem.petsc import assemble_matrix, LinearProblem
@@ -21,9 +22,11 @@ a = 1.5
 b = 0.9
 c = 0.4
 
-nx = 50
+fc = 1.0 / (2.0 * a)
+
+nx = 20
 ny = 20
-nz = 20
+nz = 4
 
 print('Creating Mesh...')
 mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
@@ -33,7 +36,9 @@ print('Done.')
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
 degree = 2
-V = fem.functionspace(mesh, ('N2curl', degree))
+V = fem.functionspace(mesh, ('N1curl', degree))
+#el = element("Lagrange", mesh.topology.cell_name(), degree, shape=(3,))
+#V = fem.functionspace(mesh, el)
 #V = fem.functionspace(mesh, ('CG', degree))
 
 print('facet dim calc',(mesh.topology.dim - 1))
@@ -47,7 +52,8 @@ pec_facets = dolfinx.mesh.locate_entities_boundary(
 print('pec facets:', pec_facets)
 pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=mesh.topology.dim-1, entities=pec_facets)
 
-u_bc = fem.Function(V)
+#u_bc = fem.Function(V)
+u_bc = fem.Function(V, dtype = np.complex128)
 with u_bc.x.petsc_vec.localForm() as loc:
     loc.set(0)
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
@@ -56,7 +62,9 @@ bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 lmbd0 = 1.5*0.5
 k0 = 2 * np.pi / lmbd0
 
+#u = ufl.TrialFunction(V)
 u = ufl.TrialFunction(V)
+#v = ufl.TestFunction(V)
 v = ufl.TestFunction(V)
 
 
@@ -73,20 +81,28 @@ ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
-Y = 50.0
+#Y = 50.0
+#Y = 377.0
+Y = 10000.0
 
 #n = ufl.as_vector([0, 0, 1])
 
 L_port = -0.5 * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
 
-#L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
-L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
+L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
+#L_inc = -1.0 * ufl.inner(ufl.as_vector([0, ufl.sin(ufl.pi * x[1]/b), 0]),v) * ds # incident wave
 
 weak_form = a + L_port + L_inc
 #weak_form = a + L_inc
 
 a = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
+
+#A = assemble_matrix(fem.form(a), bcs = [bc])
+#A.assemble()
+#L = assemble_matrix(l, bcs = [bc])
+#L = assemble_matrix(fem.form(l), bcs = [bc])
+#L.assemble()
 
 #a = fem.form(a)
 #b = fem.form(b)
@@ -95,13 +111,15 @@ L = ufl.rhs(weak_form)
 
 print('Solving...')
 problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+#problem = dolfinx.fem.petsc.LinearProblem(A, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+#problem = dolfinx.fem.petsc.LinearProblem(A, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 #problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu", "pc_factor_mat_solver_type": 'mumps'})
 E = problem.solve()
 print('Done.')
 
 gdim = mesh.geometry.dim
 V_dg = fem.functionspace(mesh, ("DG", degree, (gdim,)))
-E_dg = fem.Function(V_dg)
+E_dg = fem.Function(V_dg, dtype = np.complex128)
 E_dg.interpolate(E)
 E_dg.x.scatter_forward()
 
