@@ -35,9 +35,9 @@ c = 0.4
 
 fc = 1.0 / (2.0 * a)
 
-nx = 10
-ny = 10
-nz = 20
+nx = 50
+ny = 50
+nz = 50
 
 mpi_print('Creating Mesh...')
 mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
@@ -45,62 +45,59 @@ mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([n
 mpi_print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
+tdim = mesh.topology.dim
+gdim = mesh.geometry.dim
+mpi_print('tdim:')
+mpi_print(tdim)
+mpi_print('gdim:')
+mpi_print(gdim)
 
 degree = 1
 V = fem.functionspace(mesh, ('N1curl', degree))
 
 
-
+### Boundary Conditions ###
+# Identify PEC boundary, x[0] = 0 is waveguide port
 def is_pec(x):
     return np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c)
-# Identify PEC boundary, x[0] = 0 is waveguide port
-pec_facets = dolfinx.mesh.locate_entities_boundary(
-    mesh,
-    dim=(mesh.topology.dim - 1),
-    marker=is_pec)
 
-pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=mesh.topology.dim-1, entities=pec_facets)
+# Identify Waveguide Port Boundary location
+def is_port(x):
+    return np.isclose(x[0], 0.0)
 
-#u_bc = fem.Function(V)
+pec_facets = dolfinx.mesh.locate_entities_boundary(mesh,dim=(tdim - 1), marker=is_pec)
+pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=(tdim-1), entities=pec_facets)
+
 u_bc = fem.Function(V)
 with u_bc.x.petsc_vec.localForm() as loc:
     loc.set(0)
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
+port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
+port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
+#ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
+ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
+
+
 
 lmbd0 = 1.5*0.5
 k0 = 2 * np.pi / lmbd0
 
-#u = ufl.TrialFunction(V)
 u = ufl.TrialFunction(V)
-#v = ufl.TestFunction(V)
 v = ufl.TestFunction(V)
 
-
-#def is_port(x):
-#    return np.isclose(x[0], 0.0)
-
-def is_port(x):
-    return np.isclose(x[0], 0.0)
-tdim = mesh.topology.dim
-#mpi_print('tdim',tdim)
-#port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
-port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
-#mpi_print('port facets',port_facets)
-port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
-#mpi_print('port markers', port_marker)
-ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 V_G0 = fem.functionspace(mesh, ("DG", 0, (1,)))
 port_locations = fem.Function(V_G0) ### allocate for where mesh will be refined
 port_locations.x.array[:] = 0
-mpi_print('port facets')
-for r in range(comm.Get_size()):
-    mpi_print(port_facets, r)
 
-mpi_print('pec facets')
-for r in range(comm.Get_size()):
-    mpi_print(pec_facets, r)
+#mpi_print('port facets')
+#for r in range(comm.Get_size()):
+#    mpi_print(port_facets, r)
+#
+#mpi_print('pec facets')
+#for r in range(comm.Get_size()):
+#    mpi_print(pec_facets, r)
 
 #port_locations.x.array[port_marker] = np.full_like(port_marker, 1.0, dtype=scalar_type)
 
@@ -115,20 +112,23 @@ Y = 377.0
 
 n = ufl.as_vector([1, 0, 0])
 
-L_port = -0.5 * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
-#L_port = -0.5 * Y * ufl.inner(ufl.cross(n,u),v) * ds # impedance boundary at waveguide port
+L_port = -0.5 * ufl.exp(-1.0 * x[0] * 100000.) * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
 
-#L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
-L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
-
-#L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,1]),v) * ds # incident wave
-#L_inc = -1.0 * ufl.inner(ufl.as_vector([0, ufl.sin(ufl.pi * x[1]/b), 0]),v) * ds # incident wave
+L_inc = 1.0 * ufl.exp(-1.0 * x[0] * 100000.) * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
+#L_inc = 1.0 * ufl.inner(ufl.as_vector([ufl.cos(ufl.pi * x[0] / 1.5),0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
 
 weak_form = a + L_port + L_inc
-#weak_form = a + L_inc
 
 a = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
+
+V_port = fem.functionspace(mesh, ("CG", degree, (gdim,)))
+port = fem.Function(V_port)
+#L_inc_expr = fem.Expression(L_inc, V_port.element.interpolation_points(), comm)
+L_inc_expr = fem.Expression(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]), V_port.element.interpolation_points(), comm)
+port.interpolate(L_inc_expr)
+port.x.scatter_forward()
+
 
 #a = assemble_matrix(fem.form(a), bcs = [bc])
 #a.assemble()
@@ -137,12 +137,11 @@ L = ufl.rhs(weak_form)
 #L.assemble()
 
 #a = fem.form(a)
-#b = fem.form(b)
+#L = fem.form(L)
 
 
 
 mpi_print('Solving...')
-#problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 problem = LinearProblem(
     a,
     L,
@@ -155,9 +154,6 @@ problem = LinearProblem(
     },
 )
 
-#problem = dolfinx.fem.petsc.LinearProblem(A, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
-#problem = dolfinx.fem.petsc.LinearProblem(A, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
-#problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu", "pc_factor_mat_solver_type": 'mumps'})
 E = problem.solve()
 mpi_print('Done.')
 mpi_print(problem)
@@ -176,7 +172,7 @@ E_dg.x.scatter_forward()
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
     f.write(0.0)
-with io.VTXWriter(mesh.comm, "sols_test/port.bp", port_locations) as f:
+with io.VTXWriter(mesh.comm, "sols_test/port.bp", port) as f:
     f.write(0.0)
 
 with dolfinx.io.XDMFFile(mesh.comm, "sols_test/ft.xdmf", "w") as xdmf:
