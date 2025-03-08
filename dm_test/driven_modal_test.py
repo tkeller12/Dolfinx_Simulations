@@ -3,12 +3,12 @@ from mpi4py import MPI
 import numpy as np
 
 from petsc4py import PETSc
-real_type = PETSc.RealType
+#real_type = PETSc.RealType
 scalar_type = PETSc.ScalarType
 
 import ufl
 from basix.ufl import element
-from basix.ufl import element, mixed_element
+#from basix.ufl import element, mixed_element
 from dolfinx import fem, io, plot
 from dolfinx.fem.petsc import assemble_matrix, LinearProblem
 from dolfinx.io import gmshio
@@ -37,7 +37,7 @@ fc = 1.0 / (2.0 * a)
 
 nx = 10
 ny = 10
-nz = 10
+nz = 20
 
 mpi_print('Creating Mesh...')
 mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
@@ -46,23 +46,19 @@ mpi_print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 
-degree = 2
+degree = 1
 V = fem.functionspace(mesh, ('N1curl', degree))
-#el = element("Lagrange", mesh.topology.cell_name(), degree, shape=(3,))
-#V = fem.functionspace(mesh, el)
-#V = fem.functionspace(mesh, ('CG', degree))
 
-#mpi_print('facet dim calc',(mesh.topology.dim - 1))
+
+
+def is_pec(x):
+    return np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c)
 # Identify PEC boundary, x[0] = 0 is waveguide port
 pec_facets = dolfinx.mesh.locate_entities_boundary(
     mesh,
     dim=(mesh.topology.dim - 1),
-    marker=lambda x: np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c))
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c))
-#    marker=lambda x: np.isclose(x[0], a))
-#    marker=lambda x: np.isclose(x[0], 0.0) | np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c))
+    marker=is_pec)
 
-#mpi_print('pec facets:', pec_facets)
 pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=mesh.topology.dim-1, entities=pec_facets)
 
 #u_bc = fem.Function(V)
@@ -112,8 +108,8 @@ for r in range(comm.Get_size()):
 
 x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
-Y = 1.0
-#Y = 377.0
+#Y = 1.0
+Y = 377.0
 #Y = 10000.0
 #Y = 0.0
 
@@ -122,7 +118,10 @@ n = ufl.as_vector([1, 0, 0])
 L_port = -0.5 * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
 #L_port = -0.5 * Y * ufl.inner(ufl.cross(n,u),v) * ds # impedance boundary at waveguide port
 
-L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
+#L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1]/b)]),v) * ds # incident wave
+L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
+
+#L_inc = -1.0 * ufl.inner(ufl.as_vector([0,0,1]),v) * ds # incident wave
 #L_inc = -1.0 * ufl.inner(ufl.as_vector([0, ufl.sin(ufl.pi * x[1]/b), 0]),v) * ds # incident wave
 
 weak_form = a + L_port + L_inc
@@ -161,6 +160,7 @@ problem = LinearProblem(
 #problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu", "pc_factor_mat_solver_type": 'mumps'})
 E = problem.solve()
 mpi_print('Done.')
+mpi_print(problem)
 
 gdim = mesh.geometry.dim
 V_dg = fem.functionspace(mesh, ("DG", degree, (gdim,)))
