@@ -12,6 +12,8 @@ __pycache__/
 
 # Sim results
 *.bp
+*.xdmf
+*.h5
 
 # Distribution / packaging
 .Python
