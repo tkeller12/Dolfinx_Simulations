@@ -75,7 +75,6 @@ bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
 port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
 port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
-#ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 
