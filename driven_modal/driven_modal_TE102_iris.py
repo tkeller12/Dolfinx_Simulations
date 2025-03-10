@@ -111,11 +111,13 @@ Y = 1.0
 #Y = 10000.0
 #Y = 0.0
 
-n = ufl.as_vector([1, 0, 0])
+#n = ufl.as_vector([1, 0, 0])
+
+TE10 = ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0])
 
 L_port = -0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
 #L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds_port(1) # incident wave
-L_inc = 1.0 * ufl.inner(ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0]),v) * ds_port(1) # incident wave
+L_inc = 1.0 * ufl.inner(TE10,v) * ds_port(1) # incident wave
 
 weak_form = a + L_port + L_inc
 
@@ -153,6 +155,30 @@ E_dg = fem.Function(V_dg)
 E_dg.interpolate(E)
 E_dg.x.scatter_forward()
 
+# Calculate S-parameters
+V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
+V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(ufl.inner(ufl.as_vector([1,1,1]),ufl.as_vector([1,1,1])) * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(1.0 * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ufl.ds))
+#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(ufl.dot(E, E) * ds_port(1)))
+#V_test = fem.assemble_scalar(fem.form(ufl.dot(E_dg, E_dg) * ds_port(1)))
+V_test = fem.assemble_scalar(fem.form(ufl.inner(E_dg,E_dg) * ds_port(1)))
+
+global_value = mesh.comm.allreduce(V_test, op=MPI.SUM)
+V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
+V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
+#V_test = fem.assemble_scalar(fem.form(ufl.inner(E,E) * ufl.dx))
+
+mpi_print('S-Parameter Calculation')
+mpi_print(V_ref)
+mpi_print(V_inc)
+mpi_print(V_ref/V_inc)
+#mpi_print(V_test)
+#mpi_print(global_value)
+#mpi_print(V_ref/V_inc)
 #Port_E_inc_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
 
 
