@@ -12,10 +12,10 @@ a = 1
 b = 0.5
 d = 1.5
 
-iris_radius = 0.2
+iris_radius = 0.15
 iris_length = 0.02
 
-waveguide_length = 0.5
+waveguide_length = 1.0
 
 port_y = -d/2 - iris_length - waveguide_length
 print('PORT Y:', port_y)
@@ -57,7 +57,7 @@ gmsh.option.setNumber("Mesh.Algorithm3D", 9) #R-tree, mesh looks good, good opti
 #gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.refine()
-#gmsh.model.mesh.refine()
+gmsh.model.mesh.refine()
 
 
 gmsh.write("TE102_test001.msh")

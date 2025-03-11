@@ -34,7 +34,10 @@ a = 1.0 # waveguide a, z
 b = 0.5 # waveguide b, x
 d = 1.5 # length of cavity, y 
 
-lmbd0 = 1.5*0.82
+#lmbd0 = 1.5*0.82
+#lmbd0 = 1.23
+lmbd0 = 1.21 # on resonance
+#lmbd0 = 1.20
 k0 = 2 * np.pi / lmbd0
 
 fc = 1.0 / (2.0 * a)
@@ -156,33 +159,26 @@ E_dg.interpolate(E)
 E_dg.x.scatter_forward()
 
 # Calculate S-parameters
-V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
-V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(ufl.inner(ufl.as_vector([1,1,1]),ufl.as_vector([1,1,1])) * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(1.0 * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ufl.ds))
-#V_test = fem.assemble_scalar(fem.form(ufl.inner(E, E) * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(ufl.dot(E, E) * ds_port(1)))
-#V_test = fem.assemble_scalar(fem.form(ufl.dot(E_dg, E_dg) * ds_port(1)))
-V_test = fem.assemble_scalar(fem.form(ufl.inner(E_dg,E_dg) * ds_port(1)))
+#V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
+#V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
 
-global_value = mesh.comm.allreduce(V_test, op=MPI.SUM)
+# Normalize E-field
+N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
+N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
+normalization_factor = np.sqrt(N_global)
+E_norm = E / normalization_factor
+
+
+#V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1))))
+V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E_norm,TE10) * ds_port(1))))
+V_inc_local = fem.assemble_scalar(fem.form(ufl.dot(TE10,TE10) * ds_port(1)))
 V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
 V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
-#V_test = fem.assemble_scalar(fem.form(ufl.inner(E,E) * ufl.dx))
 
 mpi_print('S-Parameter Calculation')
 mpi_print(V_ref)
 mpi_print(V_inc)
 mpi_print(V_ref/V_inc)
-#mpi_print(V_test)
-#mpi_print(global_value)
-#mpi_print(V_ref/V_inc)
-#Port_E_inc_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
-
-
-#V_tag = fem.functionspace(mesh, ("DG", 0, (gdim,)))
 
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
