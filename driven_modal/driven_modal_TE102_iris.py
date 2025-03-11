@@ -46,6 +46,8 @@ nx = 50
 ny = 20
 nz = 10
 
+#beta = np.sqrt(omega**2 * mu*epsilon - (np.pi/a)**2)
+
 filename = 'TE102_test001.msh'
 mpi_print('Creating Mesh...')
 mesh, cell_tags, facet_tags = gmshio.read_from_msh(filename, comm, 0, gdim=3)
@@ -112,25 +114,27 @@ a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * 
 Y = 1.0
 #Y = 377.0
 #Y = 10000.0
-#Y = 0.0
 
-#n = ufl.as_vector([1, 0, 0])
 
 TE10 = ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0])
 
-L_port = -0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
-#L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds_port(1) # incident wave
-L_inc = 1.0 * ufl.inner(TE10,v) * ds_port(1) # incident wave
+L_port = 0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+L_port_H = -1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(v))) * ds_port(1) # incident wave
 
-weak_form = a + L_port + L_inc
+L_inc = -1.0 * ufl.inner(TE10,v) * ds_port(1) # incident wave
+##L_inc_H = 1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(TE10))) * ds_port(1) # incident wave
+L_inc_H = 1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(TE10))) * ds_port(1) # incident wave
+
+#L_inc_H = -1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(v))) * ds_port(1) # incident wave
+
+weak_form = a + L_port + L_port_H + L_inc #+ L_inc_H
 
 a = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
 
 V_port = fem.functionspace(mesh, ("CG", degree, (gdim,)))
 port = fem.Function(V_port)
-#L_inc_expr = fem.Expression(L_inc, V_port.element.interpolation_points(), comm)
-L_inc_expr = fem.Expression(ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0]), V_port.element.interpolation_points(), comm)
+L_inc_expr = fem.Expression(TE10, V_port.element.interpolation_points(), comm)
 port.interpolate(L_inc_expr)
 port.x.scatter_forward()
 
@@ -163,10 +167,10 @@ E_dg.x.scatter_forward()
 #V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
 
 # Normalize E-field
-N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
-N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
-normalization_factor = np.sqrt(N_global)
-E_norm = E / normalization_factor
+#N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
+#N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
+#normalization_factor = np.sqrt(N_global)
+#E_norm = E / normalization_factor
 
 #N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
 #N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
@@ -175,7 +179,10 @@ E_norm = E / normalization_factor
 
 
 #V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1))))
-V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
+#V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
+#V_inc_local = fem.assemble_scalar(fem.form(ufl.dot(TE10,TE10) * ds_port(1)))
+
+V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
 V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
 V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
 V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
@@ -184,152 +191,16 @@ mpi_print('S-Parameter Calculation')
 mpi_print(V_ref)
 mpi_print(V_inc)
 mpi_print(V_ref/V_inc)
+mpi_print((V_ref/V_inc) - 1)
 
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
     f.write(0.0)
+
 with io.VTXWriter(mesh.comm, "sols_test/port.bp", port) as f:
     f.write(0.0)
-
-with dolfinx.io.XDMFFile(mesh.comm, "sols_test/ft.xdmf", "w") as xdmf:
-    xdmf.write_mesh(mesh)
 #    xdmf.write_mesh(port_marker)
 # xdmf.write_meshtags(facet_tags)
 
 mpi_print('Script Done.')
 
-#mpi_print('Setting up Problem...')
-#eps = SLEPc.EPS().create(mesh.comm)
-#eps.setOperators(A, B)
-#eps.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
-#
-#tol = 1e-9
-#max_it = 10000
-#eps.setTolerances(tol=tol, max_it=max_it)
-#mpi_print('tol and max it:', eps.getTolerances())
-#
-#eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
-##eps.setType(SLEPc.EPS.Type.ARNOLDI) # No Improvement, 5 eigenavlues, 10 requested
-##eps.setType(SLEPc.EPS.Type.LAPACK) # All Eigenvalues
-#
-#
-## Get ST context from eps
-#st = eps.getST()
-#
-## Set shift-and-invert transformation
-#st.setType(SLEPc.ST.Type.SINVERT)
-#st.setShift(0.1)
-#st.setFromOptions()
-##st.setType(SLEPc.ST.Type.SHIFT) # Two eigenvalue converged
-##st.setType(SLEPc.ST.Type.CAYLEY)
-#
-#eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
-##eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_MAGNITUDE)
-#
-##eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_IMAGINARY) # not supported
-#
-##st.setType(SLEPc.ST.Type.SHIFT)
-##eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
-#
-##st.setType(SLEPc.ST.Type.CAYLEY)
-##eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
-#
-##eps.setWhichEigenpairs(SLEPc.EPS.Which.LARGEST_REAL)
-#
-#eps.setTarget(50)
-#
-#eps.setDimensions(nev=4)
-#mpi_print('Done.')
-#
-#
-#mpi_print('Solving...')
-#eps.solve()
-#eps.view()
-#eps.errorView()
-#
-#mpi_print('Done.')
-#
-## Save the kz
-#
-#ix = 0
-#for ix in range(eps.getConverged()):
-#    ix += 1
-#mpi_print('Total Eigenvalue:', ix)
-#
-#mpi_print('Negative, Non-trivial Eigenvalues:')
-#for i in range(eps.getConverged()):
-#    eigen_value = eps.getEigenvalue(i)
-#    if np.real(eigen_value) < -0.001:
-#        mpi_print(i, eigen_value)
-#mpi_print('Done.')
-#
-#mpi_print('Real, Non-trivial Eigenvalues:')
-#for i in range(eps.getConverged()):
-#    eigen_value = eps.getEigenvalue(i)
-#    if np.real(np.abs(eigen_value)) > 0.001:
-#        mpi_print(i, eigen_value)
-#mpi_print('Done.')
-#
-#vals = [(i, np.sqrt(-eps.getEigenvalue(i))) for i in range(eps.getConverged())]
-#
-## Sort kz by real part
-#vals.sort(key=lambda x: x[1].real)
-#
-#eh = fem.Function(V)
-#mpi_print(eh)
-#
-#kz_list = []
-#
-#mpi_print('Summary:')
-#for i, kz in vals:
-##    mpi_print('-'*50)
-##    mpi_print('i:',i)
-##    mpi_print('kz:',kz)
-##    mpi_print(i, kz)
-#    # Save eigenvector in eh
-#    eps.getEigenpair(i, eh.x.petsc_vec)
-#
-#    # Compute error for i-th eigenvalue
-#    error = eps.computeError(i, SLEPc.EPS.ErrorType.RELATIVE)
-##    mpi_print('Error:',error)
-##    if error > tol:
-##        mpi_print('***DID NOT CONVERGE!!!***')
-#
-#    # Verify, save and visualize solution
-##    if error < tol and np.isclose(kz.imag, 0, atol=tol):
-#    if True:
-#        kz_list.append(kz)
-#
-#
-##        mpi_print(f"eigenvalue: {-kz**2}")
-##        mpi_print(f"kz: {kz}")
-##        mpi_print(f"kz/k0: {kz / k0}")
-#
-#        eh.x.scatter_forward()
-#
-##        eth, ezh = eh.split()
-#        eth = eh
-##        eth = eh.sub(0).collapse()
-##        ez = eh.sub(1).collapse()
-#
-#        # Transform eth, ezh into Et and Ez
-#        eth.x.array[:] = eth.x.array[:]
-##        ezh.x.array[:] = ezh.x.array[:] * 1j
-#
-##        mpi_print(eth.x.array)
-##        mpi_print(ezh.x.array)
-#
-#
-#        gdim = mesh.geometry.dim
-#        V_dg = fem.functionspace(mesh, ("DQ", degree, (gdim,)))
-#        Et_dg = fem.Function(V_dg)
-#        Et_dg.interpolate(eth)
-#
-#        # Save solutions
-#        with io.VTXWriter(mesh.comm, "sols_test/Et_%04i.bp"%i, Et_dg) as f:
-#            f.write(0.0)
-#
-##        with io.VTXWriter(mesh.comm, "sols_test/Ez_%04i.bp"%i, ezh) as f:
-##            f.write(0.0)
-#
-#
