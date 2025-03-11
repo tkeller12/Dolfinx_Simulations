@@ -15,6 +15,7 @@ from dolfinx.io import gmshio
 
 from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities, locate_entities_boundary
 import dolfinx.mesh
+
 from slepc4py import SLEPc
 
 import sys
@@ -28,44 +29,62 @@ def mpi_print(s, rank = 0):
         print(f"Rank {comm.rank}: {s}")
     sys.stdout.flush()
 
-#waveguide parameters
-a = 1.5
-b = 0.9
-c = 0.4
+#TE102 cavity parameters
+a = 1.0 # waveguide a, z
+b = 0.5 # waveguide b, x
+d = 1.5 # length of cavity, y 
+
+#lmbd0 = 1.5*0.82
+#lmbd0 = 1.23
+#lmbd0 = 1.21 # on resonance
+lmbd0 = 1.0
+k0 = 2 * np.pi / lmbd0
 
 fc = 1.0 / (2.0 * a)
 
 nx = 50
-ny = 50
-nz = 50
+ny = 20
+nz = 10
 
+filename = 'TE102_test001.msh'
 mpi_print('Creating Mesh...')
-mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
+mesh, cell_tags, facet_tags = gmshio.read_from_msh(filename, comm, 0, gdim=3)
+#mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
 #mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.tetrahedron)
 mpi_print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 tdim = mesh.topology.dim
 gdim = mesh.geometry.dim
-mpi_print('tdim:')
-mpi_print(tdim)
-mpi_print('gdim:')
-mpi_print(gdim)
 
-degree = 1
+degree = 2
 V = fem.functionspace(mesh, ('N1curl', degree))
 
 
 ### Boundary Conditions ###
 # Identify PEC boundary, x[0] = 0 is waveguide port
-def is_pec(x):
-    return np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c)
-
+#def is_pec(x):
+#    return np.isclose(x[0], a) | np.isclose(x[1], 0.0) | np.isclose(x[1], b) | np.isclose(x[2], 0.0) | np.isclose(x[2], c)
+#
 # Identify Waveguide Port Boundary location
-def is_port(x):
-    return np.isclose(x[0], 0.0)
+#def is_port(x):
+#    return np.isclose(x[0], 0.0)
 
-pec_facets = dolfinx.mesh.locate_entities_boundary(mesh,dim=(tdim - 1), marker=is_pec)
+def np_remove(x, remove_values):
+    new_x = list(x)
+    remove_values = list(remove_values)
+    for each in remove_values:
+        new_x.remove(each)
+
+    return np.array(new_x)
+
+port_facets = facet_tags.find(2)
+
+exterior_facets = exterior_facet_indices(mesh.topology)
+
+#pec_facets = dolfinx.mesh.locate_entities_boundary(mesh,dim=(tdim - 1), marker=is_pec)
+pec_facets = np_remove(exterior_facets, port_facets)
+
 pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=(tdim-1), entities=pec_facets)
 
 u_bc = fem.Function(V)
@@ -73,14 +92,11 @@ with u_bc.x.petsc_vec.localForm() as loc:
     loc.set(0)
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
-port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
+#port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
 port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
-ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
+ds_port = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 
-
-lmbd0 = 1.5*0.5
-k0 = 2 * np.pi / lmbd0
 
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
@@ -90,31 +106,21 @@ V_G0 = fem.functionspace(mesh, ("DG", 0, (1,)))
 port_locations = fem.Function(V_G0) ### allocate for where mesh will be refined
 port_locations.x.array[:] = 0
 
-#mpi_print('port facets')
-#for r in range(comm.Get_size()):
-#    mpi_print(port_facets, r)
-#
-#mpi_print('pec facets')
-#for r in range(comm.Get_size()):
-#    mpi_print(pec_facets, r)
-
-#port_locations.x.array[port_marker] = np.full_like(port_marker, 1.0, dtype=scalar_type)
-
-
 
 x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
-#Y = 1.0
-Y = 377.0
+Y = 1.0
+#Y = 377.0
 #Y = 10000.0
 #Y = 0.0
 
-n = ufl.as_vector([1, 0, 0])
+#n = ufl.as_vector([1, 0, 0])
 
-L_port = -0.5 * ufl.exp(-1.0 * x[0] * 100000.) * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
+TE10 = ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0])
 
-L_inc = 1.0 * ufl.exp(-1.0 * x[0] * 100000.) * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
-#L_inc = 1.0 * ufl.inner(ufl.as_vector([ufl.cos(ufl.pi * x[0] / 1.5),0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
+L_port = -0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+#L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds_port(1) # incident wave
+L_inc = 1.0 * ufl.inner(TE10,v) * ds_port(1) # incident wave
 
 weak_form = a + L_port + L_inc
 
@@ -124,20 +130,9 @@ L = ufl.rhs(weak_form)
 V_port = fem.functionspace(mesh, ("CG", degree, (gdim,)))
 port = fem.Function(V_port)
 #L_inc_expr = fem.Expression(L_inc, V_port.element.interpolation_points(), comm)
-L_inc_expr = fem.Expression(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]), V_port.element.interpolation_points(), comm)
+L_inc_expr = fem.Expression(ufl.as_vector([ufl.cos(ufl.pi * x[2] / (d)),0,0]), V_port.element.interpolation_points(), comm)
 port.interpolate(L_inc_expr)
 port.x.scatter_forward()
-
-
-#a = assemble_matrix(fem.form(a), bcs = [bc])
-#a.assemble()
-#L = assemble_matrix(l, bcs = [bc])
-#L = assemble_matrix(fem.form(l), bcs = [bc])
-#L.assemble()
-
-#a = fem.form(a)
-#L = fem.form(L)
-
 
 
 mpi_print('Solving...')
@@ -163,10 +158,32 @@ E_dg = fem.Function(V_dg)
 E_dg.interpolate(E)
 E_dg.x.scatter_forward()
 
-#Port_E_inc_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
+# Calculate S-parameters
+#V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
+#V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+
+# Normalize E-field
+N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
+N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
+normalization_factor = np.sqrt(N_global)
+E_norm = E / normalization_factor
+
+#N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
+#N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
+#normalization_factor = np.sqrt(N_global)
+#E_norm = E / normalization_factor
 
 
-#V_tag = fem.functionspace(mesh, ("DG", 0, (gdim,)))
+#V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1))))
+V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
+V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
+V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
+
+mpi_print('S-Parameter Calculation')
+mpi_print(V_ref)
+mpi_print(V_inc)
+mpi_print(V_ref/V_inc)
 
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:

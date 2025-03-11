@@ -36,8 +36,8 @@ c = 0.4
 fc = 1.0 / (2.0 * a)
 
 nx = 50
-ny = 50
-nz = 50
+ny = 20
+nz = 10
 
 mpi_print('Creating Mesh...')
 mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
@@ -47,10 +47,6 @@ mpi_print('Done.')
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
 tdim = mesh.topology.dim
 gdim = mesh.geometry.dim
-mpi_print('tdim:')
-mpi_print(tdim)
-mpi_print('gdim:')
-mpi_print(gdim)
 
 degree = 1
 V = fem.functionspace(mesh, ('N1curl', degree))
@@ -75,8 +71,7 @@ bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
 port_facets = dolfinx.mesh.locate_entities_boundary(mesh, dim = (tdim - 1), marker = is_port)
 port_marker = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
-ds = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
-
+ds_port = ufl.Measure("ds", domain=mesh, subdomain_data=port_marker)
 
 
 lmbd0 = 1.5*0.5
@@ -90,17 +85,6 @@ V_G0 = fem.functionspace(mesh, ("DG", 0, (1,)))
 port_locations = fem.Function(V_G0) ### allocate for where mesh will be refined
 port_locations.x.array[:] = 0
 
-#mpi_print('port facets')
-#for r in range(comm.Get_size()):
-#    mpi_print(port_facets, r)
-#
-#mpi_print('pec facets')
-#for r in range(comm.Get_size()):
-#    mpi_print(pec_facets, r)
-
-#port_locations.x.array[port_marker] = np.full_like(port_marker, 1.0, dtype=scalar_type)
-
-
 
 x = ufl.SpatialCoordinate(mesh)
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
@@ -111,10 +95,8 @@ Y = 377.0
 
 n = ufl.as_vector([1, 0, 0])
 
-L_port = -0.5 * ufl.exp(-1.0 * x[0] * 100000.) * Y * ufl.inner(u,v) * ds # impedance boundary at waveguide port
-
-L_inc = 1.0 * ufl.exp(-1.0 * x[0] * 100000.) * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
-#L_inc = 1.0 * ufl.inner(ufl.as_vector([ufl.cos(ufl.pi * x[0] / 1.5),0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds # incident wave
+L_port = -0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+L_inc = 1.0 * ufl.inner(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]),v) * ds_port(1) # incident wave
 
 weak_form = a + L_port + L_inc
 
@@ -127,17 +109,6 @@ port = fem.Function(V_port)
 L_inc_expr = fem.Expression(ufl.as_vector([0,0,ufl.sin(ufl.pi * x[1] / (b))]), V_port.element.interpolation_points(), comm)
 port.interpolate(L_inc_expr)
 port.x.scatter_forward()
-
-
-#a = assemble_matrix(fem.form(a), bcs = [bc])
-#a.assemble()
-#L = assemble_matrix(l, bcs = [bc])
-#L = assemble_matrix(fem.form(l), bcs = [bc])
-#L.assemble()
-
-#a = fem.form(a)
-#L = fem.form(L)
-
 
 
 mpi_print('Solving...')
