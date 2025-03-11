@@ -36,8 +36,8 @@ d = 1.5 # length of cavity, y
 
 #lmbd0 = 1.5*0.82
 #lmbd0 = 1.23
-lmbd0 = 1.21 # on resonance
-#lmbd0 = 1.20
+#lmbd0 = 1.21 # on resonance
+lmbd0 = 1.0
 k0 = 2 * np.pi / lmbd0
 
 fc = 1.0 / (2.0 * a)
@@ -168,10 +168,15 @@ N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
 normalization_factor = np.sqrt(N_global)
 E_norm = E / normalization_factor
 
+#N_local = fem.assemble_scalar(fem.form(ufl.inner(TE10, ufl.conj(TE10)) * ds_port(1)))
+#N_global = mesh.comm.allreduce(N_local, op=MPI.SUM)
+#normalization_factor = np.sqrt(N_global)
+#E_norm = E / normalization_factor
+
 
 #V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1))))
-V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E_norm,TE10) * ds_port(1))))
-V_inc_local = fem.assemble_scalar(fem.form(ufl.dot(TE10,TE10) * ds_port(1)))
+V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
+V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
 V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
 V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
 
