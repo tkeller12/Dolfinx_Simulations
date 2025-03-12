@@ -186,14 +186,16 @@ for f in f_array:
 
     #V_ref_local = abs(fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1))))
     V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
-    V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+    V_inc_local = fem.assemble_scalar(fem.form(ufl.dot(TE10,TE10) * ds_port(1)))
     V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
     V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
 
-    mpi_print('S-Parameter Calculation')
+    mpi_print('S-Parameter Calculation:')
     mpi_print(V_ref)
     mpi_print(V_inc)
     mpi_print(V_ref/V_inc)
+    mpi_print((V_ref/V_inc)-1)
+    mpi_print('S-Parameter Done.')
 
     # Save solutions
     with io.VTXWriter(mesh.comm, "sols_test/E%0.03f.bp"%f, E_dg) as f:
