@@ -16,7 +16,8 @@ from dolfinx.io import gmshio
 from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_entities, locate_entities_boundary
 import dolfinx.mesh
 
-from slepc4py import SLEPc
+#from slepc4py import SLEPc
+
 
 import sys
 
@@ -29,15 +30,19 @@ def mpi_print(s, rank = 0):
         print(f"Rank {comm.rank}: {s}")
     sys.stdout.flush()
 
+#mpi_print(PETSc.ScalarType)
+assert np.dtype(PETSc.ScalarType).kind == 'c'
+
 #TE102 cavity parameters
 a = 1.0 # waveguide a, x
 b = 0.5 # waveguide b, z
-d = 5.0 # length of cavity, y 
+d = 5.013 # length of cavity, y 
 
 #lmbd0 = 1.5*0.82
 #lmbd0 = 1.23
 #lmbd0 = 1.21 # on resonance
-lmbd0 = 1.2
+#lmbd0 = 1.2
+lmbd0 = 1.20
 k0 = 2 * np.pi / lmbd0
 
 fc = 1.0 / (2.0 * a)
@@ -103,14 +108,14 @@ pec_bc_dofs = fem.locate_dofs_topological(V=V, entity_dim=(tdim-1), entities=pec
 
 u_bc = fem.Function(V)
 with u_bc.x.petsc_vec.localForm() as loc:
-    loc.set(0)
+    loc.set(0+ 0j)
 bc = fem.dirichletbc(u_bc, pec_bc_dofs)
 
 #port_markers = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
 port_markers = dolfinx.mesh.meshtags(mesh, tdim - 1, facets, port_markers)
 #port_markers = dolfinx.mesh.meshtags(mesh, tdim - 1, port_facets, np.full(len(port_facets), 1, dtype=np.int32))
 
-print(port_markers.values)
+#print(port_markers.values)
 
 ds_port = ufl.Measure("ds", domain=mesh, subdomain_data=port_markers)
 
@@ -120,13 +125,9 @@ u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
 
-V_G0 = fem.functionspace(mesh, ("DG", 0, (1,)))
-port_locations = fem.Function(V_G0) ### allocate for where mesh will be refined
-port_locations.x.array[:] = 0
-
 
 x = ufl.SpatialCoordinate(mesh)
-A = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u, v) * ufl.dx
+A = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u,v) * ufl.dx
 Y = 1.0
 #Y = 377.0
 #Y = 10000.0
@@ -142,22 +143,24 @@ Y = 1.0
 #gamma = calc_gamma(1, 0, a, b, k0)
 mpi_print('GAMMA:')
 #mpi_print(gamma)
-gamma = 1.0
+gamma = 1.0 + 0j
 
 
-TE10 = ufl.as_vector([0,0,ufl.sin(ufl.pi * x[0] / (a))])
+TE10 = ufl.as_vector([0 + 0j,0 + 0j,0j + ufl.sin(ufl.pi * x[0] / (a))])
 
-L_port = 0.5 *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
-L_port2 = 0.5 *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
-#L_port_H = -1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(v))) * ds_port(1) # incident wave
+L_port = (0.5 + 0.5j) *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+L_port2 = (0.5 + 0.5j) *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
 
-L_inc = -2.0 * gamma * ufl.inner(TE10,v) * ds_port(1) # incident wave
-##L_inc_H = 1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(TE10))) * ds_port(1) # incident wave
+#L_inc = (-2.0 + 0j) * gamma * ufl.inner(TE10,v) * ds_port(1) # incident wave
+#L_inc = (-2.0 + 0j) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
+L_inc = (-2.0 + 2.0j) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
+#L_inc = (-2.0 + 0j) * gamma * ufl.dot(TE10,v) * ds_port(1) # incident wave
 #L_inc_H = 1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(TE10))) * ds_port(1) # incident wave
 
 #L_inc_H = -1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(v))) * ds_port(1) # incident wave
 
 weak_form = A + L_port + L_inc + L_port2
+#weak_form = A + L_inc
 
 A = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
@@ -191,6 +194,7 @@ V_dg = fem.functionspace(mesh, ("DG", degree, (gdim,)))
 E_dg = fem.Function(V_dg)
 E_dg.interpolate(E)
 E_dg.x.scatter_forward()
+#E_dg.x.array[:] *= np.exp(1j*np.pi/2.)
 
 # Calculate S-parameters
 #V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
@@ -222,6 +226,7 @@ mpi_print(V_ref)
 mpi_print(V_inc)
 mpi_print(V_ref/V_inc)
 mpi_print((V_ref/V_inc) - 1)
+#mpi_print('REAL PART:')
 
 # Save solutions
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
