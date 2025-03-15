@@ -124,36 +124,68 @@ ds_port = ufl.Measure("ds", domain=mesh, subdomain_data=port_markers)
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
+def calc_gamma(m, n, a, b, k0):
+    a_term = (m * np.pi / a)**2.0
+    b_term = (n * np.pi / b)**2.0
+    if (a_term + b_term) <= k0**2.0:
+        return 1j* np.sqrt(k0**2.0 - a_term - b_term)
+    else:
+        return np.sqrt(a_term + b_term - k**2.0)
+
+mpi_print('GAMMA:')
+gamma = calc_gamma(1, 0, a, b, k0)
+mpi_print(gamma)
+
+def TE10_mode(x):
+    # x: (3, n) array of coordinates on the port boundary
+    E0 = 1.0  # amplitude of excitation (can be adjusted)
+    # Build the vector field: [0, sin(pi*x/a), 0]
+    val_z = E0 * np.exp(-1 * gamma * x[1]) * np.sin(ufl.pi * x[0] / a)
+    # Create an array of shape (3, n)
+#    values = np.vstack((np.zeros_like(x[0]), np.exp(gamma * x[1]), val_z))
+#    values = np.exp(gamma * x[1]) * np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+#    values = 1.0 * np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+#    values = np.exp(1j * 5 * x[1]) * np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+    values =  np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+#    values = np.exp(-1 * gamma * 0.0) * np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+#    values = np.exp(-1 * 0.0 * x[1]) * np.vstack((np.zeros_like(x[0]), np.zeros_like(x[0]), val_z))
+    return values
+
+E_inc = fem.Function(V)
+E_inc.interpolate(TE10_mode)
+E_inc.x.scatter_forward()
 
 
 x = ufl.SpatialCoordinate(mesh)
 A = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx - k0**2. * ufl.inner(u,v) * ufl.dx
-Y = 1.0
+#Y = 1000.0
 #Y = 377.0
+Y = 10.0
 #Y = 10000.0
 
-#def calc_gamma(m, n, a, b, k0):
-#    a_term = (m * np.pi / a)**2.0
-#    b_term = (n * np.pi / b)**2.0
-#    if (a_term + b_term) <= k0**2.0:
-#        return 1j* np.sqrt(k0**2.0 - a_term - b_term)
-#    else:
-#        return np.sqrt(a_term + b_term - k**2.0)
-#
-#gamma = calc_gamma(1, 0, a, b, k0)
-mpi_print('GAMMA:')
+
 #mpi_print(gamma)
-gamma = 1.0 + 0j
+#gamma = 1.0 + 0j
 
 
-TE10 = ufl.as_vector([0 + 0j,0 + 0j,0j + ufl.sin(ufl.pi * x[0] / (a))])
+#TE10 = ufl.as_vector([0 + 0j,0 + 0j,0j + ufl.sin(ufl.pi * x[0] / (a))])
 
-L_port = (0.5 + 0.5j) *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
-L_port2 = (0.5 + 0.5j) *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
+L_port = (0.5) *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+L_port2 = (0.5) *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
 
-#L_inc = (-2.0 + 0j) * gamma * ufl.inner(TE10,v) * ds_port(1) # incident wave
-#L_inc = (-2.0 + 0j) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
-L_inc = (-2.0 + 2.0j) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
+#L_inc = (-2.0) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
+L_inc = (-2.0) * (1) * gamma * ufl.inner(E_inc, v) * ds_port(1) # incident wave
+#L_inc = (-2.0) * (1) * gamma * ufl.inner(u, E_inc) * ds_port(1) # incident wave
+#L_inc = (-2.0) * (1) * gamma * ufl.inner(ufl.cross(ufl.FacetNormal(mesh),E_inc),ufl.curl(v)) * ds_port(1) # incident wave
+#L_inc = (-2.0) * (1) * gamma * ufl.inner(ufl.cross(ufl.FacetNormal(mesh),ufl.curl(E_inc)),v) * ds_port(1) # incident wave
+#L_inc = (-2.0) * (1) * gamma * ufl.inner(ufl.cross(ufl.FacetNormal(mesh),ufl.curl(u)),E_inc) * ds_port(1) # incident wave
+#L_inc = (-2.0) * (1) * gamma * ufl.inner(ufl.cross(ufl.FacetNormal(mesh),ufl.curl(u)),E_inc) * ds_port(1) # incident wave
+
+
+
+#L_inc = ufl.inner(ufl.curl(TE10), ufl.curl(v)) * ds_port(1) + (-2.0) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
+#L_inc = ufl.inner(ufl.curl(E_inc), ufl.curl(v)) * ds_port(1) + (-2.0) * gamma * ufl.inner(E_inc, v) * ds_port(1) # incident wave
+
 #L_inc = (-2.0 + 0j) * gamma * ufl.dot(TE10,v) * ds_port(1) # incident wave
 #L_inc_H = 1.0 * ufl.inner(u,ufl.cross(ufl.FacetNormal(mesh),ufl.curl(TE10))) * ds_port(1) # incident wave
 
@@ -166,13 +198,16 @@ A = ufl.lhs(weak_form)
 L = ufl.rhs(weak_form)
 
 V_port = fem.functionspace(mesh, ("CG", degree, (gdim,)))
-port = fem.Function(V_port)
-L_inc_expr = fem.Expression(TE10, V_port.element.interpolation_points(), comm)
-port.interpolate(L_inc_expr)
-port.x.scatter_forward()
+#port = fem.Function(V_port)
+#L_inc_expr = fem.Expression(TE10, V_port.element.interpolation_points(), comm)
+#port.interpolate(L_inc_expr)
+#port.x.scatter_forward()
 
+E_inc_cg = fem.Function(V_port)
+E_inc_cg.interpolate(TE10_mode)
+E_inc_cg.x.scatter_forward()
 
-mpi_print('Solving...')
+mpi_print('Setting Up Problem...')
 problem = LinearProblem(
     A,
     L,
@@ -180,11 +215,13 @@ problem = LinearProblem(
     petsc_options={
         "ksp_type": "preonly",
         "pc_type": "lu",
-        "pc_factor_mat_solver_type": "mumps",
+#        "pc_factor_mat_solver_type": "mumps",
         "ksp_error_if_not_converged": True,
     },
 )
+mpi_print('Done.')
 
+mpi_print('Solving...')
 E = problem.solve()
 mpi_print('Done.')
 mpi_print(problem)
@@ -216,8 +253,10 @@ E_dg.x.scatter_forward()
 #V_ref_local = fem.assemble_scalar(fem.form(ufl.dot(E,TE10) * ds_port(1)))
 #V_inc_local = fem.assemble_scalar(fem.form(ufl.dot(TE10,TE10) * ds_port(1)))
 
-V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
-V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+#V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,TE10) * ds_port(1)))
+#V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(TE10,TE10) * ds_port(1)))
+V_ref_local = fem.assemble_scalar(fem.form(ufl.inner(E,E_inc) * ds_port(1)))
+V_inc_local = fem.assemble_scalar(fem.form(ufl.inner(E_inc,E_inc) * ds_port(1)))
 V_ref = mesh.comm.allreduce(V_ref_local, op=MPI.SUM)
 V_inc = mesh.comm.allreduce(V_inc_local, op=MPI.SUM)
 
@@ -232,8 +271,11 @@ mpi_print((V_ref/V_inc) - 1)
 with io.VTXWriter(mesh.comm, "sols_test/E.bp", E_dg) as f:
     f.write(0.0)
 
-with io.VTXWriter(mesh.comm, "sols_test/port.bp", port) as f:
+with io.VTXWriter(mesh.comm, "sols_test/E_inc.bp", E_inc_cg) as f:
     f.write(0.0)
+
+#with io.VTXWriter(mesh.comm, "sols_test/port.bp", port) as f:
+#    f.write(0.0)
 #    xdmf.write_mesh(port_marker)
 # xdmf.write_meshtags(facet_tags)
 
