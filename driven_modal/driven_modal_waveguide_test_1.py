@@ -170,8 +170,8 @@ Y = 10.0
 
 #TE10 = ufl.as_vector([0 + 0j,0 + 0j,0j + ufl.sin(ufl.pi * x[0] / (a))])
 
-L_port = (0.5) *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
-L_port2 = (0.5) *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
+L_port = (0.5j) *  Y * ufl.inner(u,v) * ds_port(1) # impedance boundary at waveguide port
+L_port2 = (0.5j) *  Y * ufl.inner(u,v) * ds_port(2) # impedance boundary at waveguide port
 
 #L_inc = (-2.0) * gamma * ufl.inner(TE10, v) * ds_port(1) # incident wave
 L_inc = (-2.0) * (1) * gamma * ufl.inner(E_inc, v) * ds_port(1) # incident wave
