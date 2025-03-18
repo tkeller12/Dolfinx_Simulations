@@ -36,7 +36,7 @@ def mpi_print(s, rank = 0):
 #TE102 cavity parameters
 a = 1.0 # waveguide a, z
 b = 0.5 # waveguide b, x
-d = 1.7 # length of cavity, y 
+h = 1.7 # length of cavity, z 
 
 nx = 50
 ny = 20
