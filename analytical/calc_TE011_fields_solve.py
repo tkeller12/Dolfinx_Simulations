@@ -40,17 +40,20 @@ def mpi_print(s, rank = 0):
 #b = 0.5 # waveguide b, x
 #d = 1.7 # length of cavity, z 
 
-a = 25.4e-3 # waveguide a, z
-b = 12.7e-3 # waveguide b, x
-d = 43.18e-3 # length of cavity, z 
+r = 22.e-3 # radius, r
+h = 86.e-3 # height of cavity, z 
 
-sample_radius = 5e-3
+#sample_radius = 5e-3
+epsilon = 8.854187817e-12 # F/m
+mu = 4 * np.pi * 1e-7 # H/m
 
-nev = 4
+eta = np.sqrt(mu/epsilon)
+
+nev = 10
 
 mpi_print('Creating Mesh...')
 
-filename = 'mesh/TE102_3d_mesh.msh'
+filename = 'mesh/TE011_3d_mesh.msh'
 if comm.rank == 1:
     gmsh.initialize()
 
@@ -58,8 +61,8 @@ if comm.rank == 1:
 
     factory = gmsh.model.occ
 
-    box = factory.addBox(0,0,0,b,d,a, tag = 1)
-#    sample = factory.addCylinder(b/2,d/2,0,0,0,a, sample_radius, tag = 2)
+#    box = factory.addBox(0,0,0,b,d,a, tag = 1)
+    cylinder = factory.addCylinder(0,0,-h/2,0,0,h,r, tag = 1)
 
 #    resonator = factory.cut([(3,1)], [(3,2)], removeTool = False)
 #    resonator = factory.cut([(3,1)], [(3,2)], removeTool = True)
@@ -71,10 +74,12 @@ if comm.rank == 1:
     gmsh.option.setNumber("Mesh.Algorithm3D", 4) #Frontal, mesh looks good, good option
     gmsh.model.mesh.generate(3)
     gmsh.model.mesh.refine()
+#    gmsh.model.mesh.refine()
 
     gmsh.write(filename)
     gmsh.finalize()
 
+comm.Barrier() # barrier until file save completed
 mesh, cell_tags, facet_tags = gmshio.read_from_msh(filename, comm, 0, gdim=3)
 #mesh = create_box(MPI.COMM_WORLD, np.array([[0.0,0.0,0.0],[b,d,a]]), np.array([nx, ny, nz]), CellType.hexahedron)
 mpi_print('Done.')
@@ -186,6 +191,8 @@ kz_list = []
 
 for i, kz in vals:
     eigen_value = eigen_values[i]
+    mode_freq = convert_eigenvalue_to_f(np.real(eigen_value))
+    mpi_print('Mode frequency: %0.03f GHz'%(mode_freq/1e9))
     # Save eigenvector in eh
     eps.getEigenpair(i, eh.x.petsc_vec)
 
@@ -202,6 +209,15 @@ for i, kz in vals:
     # Transform eth, ezh into Et and Ez
     eth.x.array[:] = eth.x.array[:]
 
+    norm_local = fem.assemble_scalar(fem.form(epsilon * ufl.inner(eth,eth) * ufl.dx))
+    norm = mesh.comm.allreduce(norm_local, op=MPI.SUM)
+    mpi_print('Norm: %0.03e'%norm)
+    eth.x.array[:] = eth.x.array[:] / np.sqrt(norm)
+
+    mode_power_local = fem.assemble_scalar(fem.form(epsilon * ufl.inner(eth,eth) * ufl.dx))
+    mode_power = mesh.comm.allreduce(mode_power_local, op=MPI.SUM)
+    mpi_print('Mode Power: %0.03f W'%mode_power)
+
     gdim = mesh.geometry.dim
 #        V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
     V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
@@ -210,18 +226,26 @@ for i, kz in vals:
     Et_dg.interpolate(eth)
     Et_dg.x.scatter_forward()
 
-    B = fem.Function(V_dg)
-    B_form = ufl.curl(eth)
-    B_expr = fem.Expression(B_form, V_dg.element.interpolation_points())
-    B.interpolate(B_expr)
-    B.x.scatter_forward()
+    H = fem.Function(V_dg)
+    const = (1./(2*np.pi*mode_freq * mu))
+    mpi_print(const)
+    H_form = ufl.curl(eth)
+    H_expr = fem.Expression(H_form, V_dg.element.interpolation_points())
+    H.interpolate(H_expr)
+    H.x.scatter_forward()
+    H.x.array[:] = H.x.array[:] * const
+
+    B = H # this doesn't work because H changes as well
+    B.x.array[:] = B.x.array[:] * mu
+
 
     if i < nev:
         mpi_print('Saving solution, eigenvalue %i'%i)
-    #            with io.VTXWriter(mesh.comm, "sols_lgr_%i/Et_%04i.bp"%(run_ix,i), Et_dg) as f:
-        with io.VTXWriter(mesh.comm, "sols_test/E_test_%i.bp"%i, Et_dg) as f:
+        with io.VTXWriter(mesh.comm, "sols_test/TE011_E_test_%02i.bp"%i, Et_dg) as f:
             f.write(0.0)
-        with io.VTXWriter(mesh.comm, "sols_test/B_test_%i.bp"%i, B) as f:
+        with io.VTXWriter(mesh.comm, "sols_test/TE011_H_test_%02i.bp"%i, H) as f:
+            f.write(0.0)
+        with io.VTXWriter(mesh.comm, "sols_test/TE011_B_test_%02i.bp"%i, B) as f:
             f.write(0.0)
 
 
