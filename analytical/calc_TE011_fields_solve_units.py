@@ -40,8 +40,11 @@ def mpi_print(s, rank = 0):
 #b = 0.5 # waveguide b, x
 #d = 1.7 # length of cavity, z 
 
-r = 22.e-3 # radius, r
-h = 86.e-3 # height of cavity, z 
+#r = 22.e-3 # radius, r
+#h = 86.e-3 # height of cavity, z 
+
+r = 6.32e-3 # radius, r
+h = 16.5e-3 # height of cavity, z 
 
 #sample_radius = 5e-3
 epsilon = 8.854187817e-12 # F/m
@@ -49,7 +52,7 @@ mu = 4 * np.pi * 1e-7 # H/m
 
 eta = np.sqrt(mu/epsilon)
 
-nev = 10
+nev = 5
 
 mpi_print('Creating Mesh...')
 
@@ -90,7 +93,8 @@ gdim = mesh.geometry.dim
 
 c = 299792458 # speed of light, m/s
 
-target_freq = 9e9
+#target_freq = 9e9
+target_freq = 34.160e9
 
 def convert_eigenvalue_to_f(k_squared):
     return c * np.sqrt(k_squared) / (2 * np.pi)
@@ -103,7 +107,7 @@ def convert_freq_to_target(freq):
 target_eigenvalue = convert_freq_to_target(target_freq)
 
 degree = 2
-V = fem.functionspace(mesh, ("N2curl", degree, (gdim,)))
+V = fem.functionspace(mesh, ("N1curl", degree, (gdim,)))
 V_CG = fem.functionspace(mesh, ("CG", degree, (gdim,)))
 
 u = ufl.TrialFunction(V)
