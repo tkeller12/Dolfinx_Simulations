@@ -211,12 +211,12 @@ for i, kz in vals:
 
     norm_local = fem.assemble_scalar(fem.form(epsilon * ufl.inner(eth,eth) * ufl.dx))
     norm = mesh.comm.allreduce(norm_local, op=MPI.SUM)
-    mpi_print('Norm: %0.03e'%norm)
+#    mpi_print('Norm: %0.03e'%norm)
     eth.x.array[:] = eth.x.array[:] / np.sqrt(norm)
 
     mode_power_local = fem.assemble_scalar(fem.form(epsilon * ufl.inner(eth,eth) * ufl.dx))
     mode_power = mesh.comm.allreduce(mode_power_local, op=MPI.SUM)
-    mpi_print('Mode Power: %0.03f W'%mode_power)
+    mpi_print('Mode Power E: %0.03f W'%mode_power)
 
     gdim = mesh.geometry.dim
 #        V_dg = fem.functionspace(mesh, ("CG", degree, (gdim,)))
@@ -228,14 +228,21 @@ for i, kz in vals:
 
     H = fem.Function(V_dg)
     const = (1./(2*np.pi*mode_freq * mu))
-    mpi_print(const)
+#    mpi_print(const)
     H_form = ufl.curl(eth)
     H_expr = fem.Expression(H_form, V_dg.element.interpolation_points())
     H.interpolate(H_expr)
     H.x.scatter_forward()
     H.x.array[:] = H.x.array[:] * const
 
-    B = H # this doesn't work because H changes as well
+
+    mode_power_H_local = fem.assemble_scalar(fem.form((1.0/mu) * ufl.inner(H,H) * ufl.dx))
+    mode_power_H = mesh.comm.allreduce(mode_power_H_local, op=MPI.SUM)
+    mpi_print('Mode Power H: %0.03f W'%mode_power)
+
+    B = fem.Function(V_dg)
+    B.interpolate(H)
+    B.x.scatter_forward()
     B.x.array[:] = B.x.array[:] * mu
 
 
