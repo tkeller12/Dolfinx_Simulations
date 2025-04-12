@@ -25,7 +25,7 @@ nx = 8
 ny = 8
 nz = 12
 
-filename = 'microstrip_mesh.msh'
+filename = 'microstrip_mesh2.msh'
 
 print('Creating Mesh...')
 #mesh = create_box(MPI.COMM_WORLD, np.array([[0,0,0],[a,b,c]]), np.array([nx, ny, nz]), CellType.hexahedron)
