@@ -5,3 +5,6 @@ ls -a
 cd /home/python/Dolfinx_Simulations
 
 ls
+
+cd /test
+
