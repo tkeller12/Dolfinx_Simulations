@@ -17,10 +17,12 @@ from dolfinx.mesh import CellType, create_box, exterior_facet_indices, locate_en
 from slepc4py import SLEPc
 
 
-filename = 'cylindrical_resonator_test001.msh'
+filename = 'dielectric_resonator_refined.msh'
+#filename = 'dielectric_resonator_test001.msh'
+
 
 print('Creating Mesh...')
-mesh, cell, facet_tags = gmshio.read_from_msh(filename, MPI.COMM_WORLD, 0, gdim=3)
+mesh, cell_tags, facet_tags = gmshio.read_from_msh(filename, MPI.COMM_WORLD, 0, gdim=3)
 print('Done.')
 
 mesh.topology.create_connectivity(mesh.topology.dim-1,mesh.topology.dim)
@@ -51,30 +53,81 @@ nev = 10
 
 degree = 2
 V = fem.functionspace(mesh, ('N2curl', degree))
+EPS_R_space = fem.functionspace(mesh, ("DG", 0))
+
+#Vt = fem.TensorFunctionSpace(mesh, ("DG", 0))
+eps_r = fem.Function(EPS_R_space)
 
 lmbd0 = 1.0
 k0 = 2 * np.pi / lmbd0
 
-eps_r = 1.
+VACUUM = 1
+DIELECTRIC = 2
+
+#eps_r = fem.Function(V)
+eps_r.x.array[cell_tags.find(VACUUM)] = 1.0
+eps_r.x.array[cell_tags.find(DIELECTRIC)] = 9.3
+
+#eps_r = 1.
+mu_r = 1.0 # unused
 
 print('Defining problem...')
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
 a = (ufl.inner(ufl.curl(u), ufl.curl(v))) * ufl.dx
-b = ufl.inner(u, v) * ufl.dx
+#b = eps_r * ufl.inner(u, v) * ufl.dx
+b = eps_r * ufl.inner(u, v) * ufl.dx
 
 a = fem.form(a)
 b = fem.form(b)
 print('Done.')
 
 print('Applying Boundary Conditions...')
-bc_facets = exterior_facet_indices(mesh.topology)
-bc_dofs = fem.locate_dofs_topological(V, mesh.topology.dim - 1, bc_facets)
+#### ORIGINAL CODE ####
+#bc_facets = exterior_facet_indices(mesh.topology)
+#bc_dofs = fem.locate_dofs_topological(V, mesh.topology.dim - 1, bc_facets)
+#u_bc = fem.Function(V)
+#with u_bc.x.petsc_vec.localForm() as loc:
+#    loc.set(0)
+#bc = fem.dirichletbc(u_bc, bc_dofs)
+tdim = mesh.topology.dim
+fdim = tdim - 1
+
+# 1. Get all exterior facets
+exterior_facets = exterior_facet_indices(mesh.topology)
+
+# 2. For each facet, find adjacent cells
+mesh.topology.create_connectivity(fdim, tdim)
+facet_to_cells = mesh.topology.connectivity(fdim, tdim)
+
+# 3. Prepare lists
+outer_facets = []
+
+# 4. Loop through exterior facets and check which volume they belong to
+for f in exterior_facets:
+    cells = facet_to_cells.links(f)
+    if len(cells) == 1:
+        cell = cells[0]
+        tag = cell_tags.values[cell]
+        # Keep only facets on vacuum
+        if tag == 1:  # vacuum tag
+            outer_facets.append(f)
+
+pec_facets = np.array(outer_facets, dtype=np.int32)
+
+# 5. Apply BC only to those facets
+bc_dofs = fem.locate_dofs_topological(V, fdim, pec_facets)
 u_bc = fem.Function(V)
 with u_bc.x.petsc_vec.localForm() as loc:
-    loc.set(0)
+    loc.set(0.0)
 bc = fem.dirichletbc(u_bc, bc_dofs)
+
+
+
+
+
+
 print('Done.')
 
 
@@ -105,12 +158,9 @@ eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
 # Get ST context from eps
 st = eps.getST()
 
-shift = (2*np.pi * target_freq / c)**2
-
 # Set shift-and-invert transformation
 st.setType(SLEPc.ST.Type.SINVERT)
-#st.setShift(0.1)
-st.setShift(shift)
+st.setShift(0.1)
 st.setFromOptions()
 #st.setType(SLEPc.ST.Type.SHIFT) # Two eigenvalue converged
 #st.setType(SLEPc.ST.Type.CAYLEY)
@@ -235,9 +285,28 @@ for i, kz in vals:
         B.x.scatter_forward()
 
 
+
+        #### SMOOTH SOLUTION
+        # Assume u is your current Nedelec solution
+        # Create a continuous Lagrange vector space of order 2 for smoothing
+        V_smooth = fem.functionspace(mesh, ("Lagrange", 5, (gdim,))) # 5th order is very good
+        u_smooth = fem.Function(V_smooth)
+        u_expr = fem.Expression(eth, V_smooth.element.interpolation_points())
+        u_smooth.interpolate(u_expr)
+        u_smooth.x.scatter_forward()
+
+        # Project u onto the new space
+#        u = Et_dg
+#        fem.petsc.copy(u, u_smooth)  # simple copy; for proper projection you can use interpolate
+        # or:
+
+
         # Save solutions
 #        with io.VTXWriter(mesh.comm, "sols_test/Et_%04i_%s.bp"%(i,freq_string), Et_dg) as f:
         with io.VTXWriter(mesh.comm, "sols_test/E_%04i.bp"%i, Et_dg) as f:
+            f.write(0.0)
+
+        with io.VTXWriter(mesh.comm, "sols_test/E_smooth_%04i.bp"%i, u_smooth) as f:
             f.write(0.0)
 
         with io.VTXWriter(mesh.comm, "sols_test/H_%04i.bp"%i, B) as f:
