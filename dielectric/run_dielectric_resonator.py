@@ -279,17 +279,21 @@ for i, kz in vals:
         Et_dg = fem.Function(V_dg)
         Et_dg.interpolate(eth)
 
-        B = fem.Function(V_dg)
-        B_expr = fem.Expression(ufl.curl(eth), V_dg.element.interpolation_points())
+        B = fem.Function(V)
+        B_expr = fem.Expression(ufl.curl(eth), V.element.interpolation_points())
         B.interpolate(B_expr)
         B.x.scatter_forward()
 
+        V_smooth = fem.functionspace(mesh, ("Lagrange", 5, (gdim,))) # 5th order is very good
 
+        B_smooth = fem.Function(V_smooth)
+        B_smooth_expr = fem.Expression(B, V_smooth.element.interpolation_points())
+        B_smooth.interpolate(B_smooth_expr)
+        B_smooth.x.scatter_forward()
 
         #### SMOOTH SOLUTION
         # Assume u is your current Nedelec solution
         # Create a continuous Lagrange vector space of order 2 for smoothing
-        V_smooth = fem.functionspace(mesh, ("Lagrange", 5, (gdim,))) # 5th order is very good
         u_smooth = fem.Function(V_smooth)
         u_expr = fem.Expression(eth, V_smooth.element.interpolation_points())
         u_smooth.interpolate(u_expr)
@@ -309,7 +313,10 @@ for i, kz in vals:
         with io.VTXWriter(mesh.comm, "sols_test/E_smooth_%04i.bp"%i, u_smooth) as f:
             f.write(0.0)
 
-        with io.VTXWriter(mesh.comm, "sols_test/H_%04i.bp"%i, B) as f:
+#        with io.VTXWriter(mesh.comm, "sols_test/H_%04i.bp"%i, B) as f:
+#            f.write(0.0)
+
+        with io.VTXWriter(mesh.comm, "sols_test/H_%04i.bp"%i, B_smooth) as f:
             f.write(0.0)
 
 #        with io.VTXWriter(mesh.comm, "sols_test/Ez_%04i.bp"%i, ezh) as f:

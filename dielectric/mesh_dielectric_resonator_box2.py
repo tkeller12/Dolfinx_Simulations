@@ -1,4 +1,5 @@
 import gmsh
+import numpy as np
 
 # Initialize GMSH
 gmsh.initialize()
@@ -7,12 +8,16 @@ gmsh.model.add("DielectricResonator")
 factory = gmsh.model.occ
 
 # --- Geometry parameters ---
-dielectricOD = 12.7e-3
-dielectricHeight = 6.35e-3
+#dielectricOD = 12.7e-3
+#dielectricHeight = 6.35e-3
+
+dielectricOD = 10e-3
+dielectricHeight = 13e-3
+dielectricID = 5.1e-3
 eps_r = 9.3
 dielectric_tag = 2
 
-resonatorOD = 30e-3
+resonatorOD = 20e-3
 resonatorHeight = 20e-3
 vacuum_tag = 1
 
@@ -21,6 +26,13 @@ base_size = 0.003
 
 # --- Create geometry ---
 dielectric = factory.addCylinder(0,0,-dielectricHeight/2,0,0,dielectricHeight, dielectricOD/2)
+if not np.isclose(dielectricID ,0):
+    dielectricVoid = factory.addCylinder(0,0,-dielectricHeight/2,0,0,dielectricHeight, dielectricID/2)
+    result_tags, out_dim_tags_map = factory.cut([(3,dielectric)], [(3, dielectricVoid)], removeTool = True)
+    print(result_tags)
+
+
+
 resonator = factory.addCylinder(0,0,-resonatorHeight/2,0,0,resonatorHeight,resonatorOD/2)
 result_tags, out_dim_tags_map = factory.cut([(3,resonator)], [(3, dielectric)], removeTool = False)
 
