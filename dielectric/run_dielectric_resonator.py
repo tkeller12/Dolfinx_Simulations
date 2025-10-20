@@ -55,6 +55,16 @@ degree = 2
 V = fem.functionspace(mesh, ('N2curl', degree))
 EPS_R_space = fem.functionspace(mesh, ("DG", 0))
 
+V0 = fem.functionspace(mesh, ("DG", 0))   # piecewise constant per cell
+domains = fem.Function(V0)
+domains.name = "domain_id"
+# Fill with the tag values (1, 2, etc.)
+domains.x.array[:] = cell_tags.values
+
+with io.VTXWriter(mesh.comm, "domains.bp", [domains]) as vtx:
+    vtx.write(0.0)
+
+
 #Vt = fem.TensorFunctionSpace(mesh, ("DG", 0))
 eps_r = fem.Function(EPS_R_space)
 
@@ -66,7 +76,8 @@ DIELECTRIC = 2
 
 #eps_r = fem.Function(V)
 eps_r.x.array[cell_tags.find(VACUUM)] = 1.0
-eps_r.x.array[cell_tags.find(DIELECTRIC)] = 9.3
+#eps_r.x.array[cell_tags.find(DIELECTRIC)] = 9.3 # sapphire
+eps_r.x.array[cell_tags.find(DIELECTRIC)] = 3.8
 
 #eps_r = 1.
 mu_r = 1.0 # unused
@@ -304,6 +315,8 @@ for i, kz in vals:
 #        fem.petsc.copy(u, u_smooth)  # simple copy; for proper projection you can use interpolate
         # or:
 
+        u_smooth.name = 'E'
+        B_smooth.name = 'H'
 
         # Save solutions
 #        with io.VTXWriter(mesh.comm, "sols_test/Et_%04i_%s.bp"%(i,freq_string), Et_dg) as f:
@@ -319,8 +332,29 @@ for i, kz in vals:
         with io.VTXWriter(mesh.comm, "sols_test/H_%04i.bp"%i, B_smooth) as f:
             f.write(0.0)
 
+#        with io.VTXWriter(mesh.comm, "sols_test/domains_%04i.bp"%i, [cell_tags], engine = 'BP4') as f:
+#        with io.VTXWriter(mesh.comm, "sols_test/test_%04i.bp"%i, [u_smooth,B_smooth], engine = 'BP4') as f:
+        with io.VTXWriter(mesh.comm, "sols_test/test_%04i.bp"%i, [u_smooth,B_smooth]) as f:
+            f.write(0.0)
+
 #        with io.VTXWriter(mesh.comm, "sols_test/Ez_%04i.bp"%i, ezh) as f:
 #            f.write(0.0)
+#        from dolfinx.io import XDMFFile
+
+#        with XDMFFile(mesh.comm, "fields.xdmf", "w") as file:
+#            file.write_mesh(mesh)
+#            file.write_function(eth, "E_field")
+#
+#            # Optional: write subdomain tags (the "dielectric" and "vacuum" markers)
+#            file.write_meshtags(domain_tags)
+#
+#        with XDMFFile(mesh.comm, "fields.xdmf", "w") as file:
+#            file.write_mesh(mesh)
+#            file.write_meshtags(domain_tags)
+#            file.write_meshtags(mesh, cell_tags)
+#            file.write_meshtags(mesh, facet_tags)
+#            eth.name = 'E-field'
+#            file.write_function(u_smooth, 0.0)  # time = 0.0
 
 
 print('Script Done.')

@@ -11,13 +11,19 @@ factory = gmsh.model.occ
 #dielectricOD = 12.7e-3
 #dielectricHeight = 6.35e-3
 
-dielectricOD = 10e-3
-dielectricHeight = 13e-3
-dielectricID = 5.1e-3
-eps_r = 9.3
+#dielectricOD = 10e-3
+#dielectricHeight = 13e-3
+#dielectricID = 5.1e-3
+#eps_r = 9.3
+
+dielectricOD = 19.05e-3
+dielectricHeight = 6.35e-3
+dielectricID = 0.0
+eps_r = 3.8
+
 dielectric_tag = 2
 
-resonatorOD = 20e-3
+resonatorOD = 32e-3
 resonatorHeight = 20e-3
 vacuum_tag = 1
 
@@ -41,6 +47,12 @@ factory.synchronize()
 # --- Physical groups ---
 gmsh.model.addPhysicalGroup(3, [resonator], vacuum_tag, "resonator")
 gmsh.model.addPhysicalGroup(3, [dielectric], dielectric_tag, "dielectric")
+
+surfaces = gmsh.model.getBoundary(gmsh.model.getEntities(3), oriented=False)
+for s in surfaces:
+    print("Adding surface", s)
+gmsh.model.addPhysicalGroup(2, [s[1] for s in surfaces], tag=99)
+gmsh.model.setPhysicalName(2, 99, "AllSurfaces")
 
 # --- Mesh refinement fields ---
 lc_diel = base_size / (eps_r**0.5)
@@ -84,5 +96,6 @@ gmsh.model.mesh.field.setAsBackgroundMesh(field_min)
 # --- Generate 3D mesh ---
 gmsh.model.mesh.generate(3)
 gmsh.write("dielectric_resonator_refined.msh")
+gmsh.write("dielectric_resonator_refined.stl")
 gmsh.fltk.run()
 gmsh.finalize()
