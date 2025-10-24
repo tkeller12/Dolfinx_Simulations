@@ -49,7 +49,7 @@ def convert_freq_to_target(freq):
 target_eigenvalue = convert_freq_to_target(target_freq)
 
 
-nev = 10
+nev = 8
 
 degree = 2
 V = fem.functionspace(mesh, ('N2curl', degree))
@@ -76,8 +76,8 @@ DIELECTRIC = 2
 
 #eps_r = fem.Function(V)
 eps_r.x.array[cell_tags.find(VACUUM)] = 1.0
-#eps_r.x.array[cell_tags.find(DIELECTRIC)] = 9.3 # sapphire
-eps_r.x.array[cell_tags.find(DIELECTRIC)] = 3.8
+eps_r.x.array[cell_tags.find(DIELECTRIC)] = 9.4 # sapphire
+#eps_r.x.array[cell_tags.find(DIELECTRIC)] = 3.8 # Quartz
 
 #eps_r = 1.
 mu_r = 1.0 # unused
@@ -256,9 +256,9 @@ for i, kz in vals:
 
     # Compute error for i-th eigenvalue
     error = eps.computeError(i, SLEPc.EPS.ErrorType.RELATIVE)
-    print('Error:',error)
-    if error > tol:
-        print('***DID NOT CONVERGE!!!***')
+#    print('Error:',error)
+#    if error > tol:
+#        print('***DID NOT CONVERGE!!!***')
 
     # Verify, save and visualize solution
 #    if error < tol and np.isclose(kz.imag, 0, atol=tol):

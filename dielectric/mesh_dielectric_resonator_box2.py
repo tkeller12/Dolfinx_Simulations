@@ -11,24 +11,25 @@ factory = gmsh.model.occ
 #dielectricOD = 12.7e-3
 #dielectricHeight = 6.35e-3
 
-#dielectricOD = 10e-3
-#dielectricHeight = 13e-3
-#dielectricID = 5.1e-3
-#eps_r = 9.3
+dielectricOD = 10e-3
+dielectricHeight = 13e-3
+dielectricID = 5.0e-3
+eps_r = 9.4
 
-dielectricOD = 19.05e-3
-dielectricHeight = 6.35e-3
-dielectricID = 0.0
-eps_r = 3.8
+#dielectricOD = 19.05e-3
+#dielectricHeight = 6.35e-3
+#dielectricID = 0.0
+#eps_r = 3.8
 
 dielectric_tag = 2
 
-resonatorOD = 32e-3
-resonatorHeight = 20e-3
+resonatorOD = 16.5e-3
+resonatorHeight = 24e-3
 vacuum_tag = 1
 
-base_size = 0.003
-#base_size = 0.008
+#base_size = 0.003
+base_size = 0.005
+#base_size = 0.002
 
 # --- Create geometry ---
 dielectric = factory.addCylinder(0,0,-dielectricHeight/2,0,0,dielectricHeight, dielectricOD/2)
@@ -92,10 +93,13 @@ gmsh.model.mesh.field.setAsBackgroundMesh(field_min)
 
 #gmsh.option.setNumber("Mesh.CharacteristicLengthMax", base_size) # over-rides box
 
+gmsh.option.setNumber("Mesh.ElementOrder", 2)
+gmsh.option.setNumber("Mesh.HighOrderOptimize", 1)  # smooth curved elements
 
 # --- Generate 3D mesh ---
 gmsh.model.mesh.generate(3)
 gmsh.write("dielectric_resonator_refined.msh")
 gmsh.write("dielectric_resonator_refined.stl")
+gmsh.write("dielectric_resonator_refined.step")
 gmsh.fltk.run()
 gmsh.finalize()
